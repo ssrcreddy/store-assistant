@@ -1,0 +1,17 @@
+{
+  "name": "commerce-mock-apis",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Stand-ins for the existing Order, Inventory and Payment APIs",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "4.21.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

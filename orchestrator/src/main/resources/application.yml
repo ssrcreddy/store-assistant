@@ -1,0 +1,43 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: commerce-ai-orchestrator
+  mvc:
+    async:
+      request-timeout: 65s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+app:
+  llm:
+    # anthropic = Claude API (ANTHROPIC_API_KEY). bedrock = Claude on Amazon Bedrock (AWS_REGION + AWS credentials).
+    provider: ${LLM_PROVIDER:anthropic}
+    # On Bedrock use the prefixed IDs: anthropic.claude-haiku-5-5 / anthropic.claude-sonnet-5-5
+    fast-model: ${FAST_MODEL:claude-haiku-5-5}
+    smart-model: ${SMART_MODEL:claude-sonnet-5-5}
+    fallbacks-enabled: ${LLM_FALLBACKS:true}
+    timeout-seconds: 30
+  budget:
+    monthly-usd: ${LLM_BUDGET_USD:3000}
+    degrade-at-fraction: 0.9
+    max-tokens-per-session: 15000
+  agent:
+    max-tool-rounds: 3
+    fast-max-tokens: 4096
+    smart-max-tokens: 8192
+    history-turns: 5
+  tools:
+    base-url: ${MOCK_API_URL:http://localhost:4000}
+    timeout-ms: 800
+  debug-endpoints: ${DEBUG_ENDPOINTS:true}
+
+logging:
+  level:
+    com.example.commerceai: INFO
+    AUDIT: INFO

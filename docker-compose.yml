@@ -1,0 +1,24 @@
+services:
+  mock-apis:
+    build: ./mock-apis
+    ports:
+      - "4000:4000"
+    environment:
+      MOCK_LATENCY_MS: "60"
+      MOCK_FAILURE_RATE: "0"
+
+  orchestrator:
+    build: ./orchestrator
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mock-apis
+    environment:
+      MOCK_API_URL: http://mock-apis:4000
+      LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AWS_REGION: ${AWS_REGION:-}
+      FAST_MODEL: ${FAST_MODEL:-claude-haiku-5-5}
+      SMART_MODEL: ${SMART_MODEL:-claude-sonnet-5-5}
+      LLM_BUDGET_USD: ${LLM_BUDGET_USD:-3000}
+      DEBUG_ENDPOINTS: "true"

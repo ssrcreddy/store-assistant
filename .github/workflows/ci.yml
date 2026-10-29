@@ -1,0 +1,63 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_evals:
+        description: Run the golden-set evals against the real model (spends tokens)
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Orchestrator unit tests
+        run: mvn -B -f orchestrator/pom.xml verify
+      - name: Mock APIs install
+        run: npm ci --prefix mock-apis
+      - name: Web build
+        run: npm ci --prefix web && npm run build --prefix web
+
+  evals:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_evals
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Start mock APIs and orchestrator
+        run: |
+          npm ci --prefix mock-apis
+          (cd mock-apis && node server.js &)
+          mvn -B -q -f orchestrator/pom.xml -DskipTests package
+          java -jar orchestrator/target/commerce-ai-orchestrator-*.jar &
+          for i in $(seq 1 60); do curl -sf localhost:8080/actuator/health && break; sleep 2; done
+      - name: Run evals (fails on pass rate < 90% or any PII leak)
+        run: node evals/run-evals.mjs --min-pass 0.9
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-results
+          path: evals/results/latest.json

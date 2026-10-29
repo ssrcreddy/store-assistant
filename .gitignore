@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.tsbuildinfo
+target/
+*.log
+.env
+evals/results/
+.idea/
+.vscode/
