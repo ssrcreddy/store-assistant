@@ -92,7 +92,7 @@ Golden-set run on 2026-10-29 with streaming, prefetch and startup warm-up: 17 ca
 | Cost per request, FAST / SMART | | **$0.00010** / **$0.0046** |
 | Cost per request, eval mix | < $0.002 | **$0.0014** |
 | PII values reaching the LLM | 0 | **0** |
-| Share of requests with no LLM call | ≥ 30% | Not measured yet: needs a k6 run with a realistic traffic mix |
+| Share of requests with no LLM call | ≥ 30% | **18%** in the golden set (3/17, a deliberately LLM-heavy mix). 98% in the k6 run below, which repeats 5 questions and so overstates the cache. The real figure needs production traffic. |
 
 What each change did (LLM route only):
 
@@ -109,6 +109,19 @@ Notes:
 - Streaming alone barely helped. Answers are short (150–650 characters), so most of the wait came before the first word, in the model round that chooses a tool. Prefetching the lookups the router can predict removes that round, and that halved the median.
 - On Sonnet the answer text arrives in one burst (under 60 ms from first to last text). The server-side refusal fallback is not the cause: a run with `LLM_FALLBACKS=false` showed the same burst and the same Sonnet latency (p50 3.4 s against 3.7 s), so the fallback stays on.
 - With 17 cases, p95 is the single slowest answer, and runs vary widely. Across four runs the LLM-route p95 was 6.3, 5.2, 4.8 and 8.4 s. In the slowest run, two Haiku answers waited about 8 s for their first word; the requests were unchanged, so the delay was most likely on the API side. Use the k6 run (about 1,600 requests) for p95, and the golden set for correctness and cost.
+
+### Load test (k6)
+
+Run on 2026-10-29 on a laptop: 6 req/s for 2 minutes (design peak), then 15 req/s for 1 minute (2.5x headroom), against the local orchestrator and mock APIs.
+
+| Route | Requests | p50 | p95 | Max |
+|---|---|---|---|---|
+| Template (no LLM) | 966 | 75 ms | **86 ms** | 837 ms |
+| Response cache | 629 | 5 ms | **9 ms** | 53 ms |
+| FAST (Haiku) | 27 | 1.24 s | **2.15 s** | 2.48 s |
+| FAST, time to first text | 27 | 1.01 s | 1.55 s | 1.85 s |
+
+1,622 requests, 0 errors, all thresholds passed. The service held 15 req/s with no rise in latency on the non-LLM paths. The mix has no SMART questions and the cache absorbed most LLM-route repeats, so the Haiku figures rest on 27 samples. `k6 run -e NO_CACHE=1 loadtest/chat.js` makes every LLM-route question reach the model.
 
 ## Project layout
 
