@@ -1,6 +1,8 @@
 package com.example.commerceai.agent;
 
+import com.anthropic.core.JsonValue;
 import com.anthropic.models.messages.ContentBlockParam;
+import com.anthropic.models.messages.DirectCaller;
 import com.anthropic.models.messages.Message;
 import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.MessageParam;
@@ -18,6 +20,7 @@ import com.example.commerceai.privacy.OutputGuard;
 import com.example.commerceai.privacy.PiiRedactor;
 import com.example.commerceai.privacy.StreamingGuard;
 import com.example.commerceai.routing.IntentRouter;
+import com.example.commerceai.routing.PrefetchPlanner;
 import com.example.commerceai.routing.ResponseCache;
 import com.example.commerceai.routing.Route;
 import com.example.commerceai.tools.CommerceTools;
@@ -57,6 +60,7 @@ public class AgentService {
     private final TemplateResponder templates;
     private final LlmGateway gateway;
     private final CommerceTools tools;
+    private final PrefetchPlanner prefetch;
     private final SystemPrompt systemPrompt;
     private final ConversationStore conversations;
     private final UsageLedger ledger;
@@ -64,7 +68,7 @@ public class AgentService {
     private final ExecutorService toolPool = Executors.newFixedThreadPool(32);
 
     public AgentService(IntentRouter router, ResponseCache cache, PiiRedactor redactor, OutputGuard outputGuard,
-                        TemplateResponder templates, LlmGateway gateway, CommerceTools tools, SystemPrompt systemPrompt,
+                        TemplateResponder templates, LlmGateway gateway, CommerceTools tools, PrefetchPlanner prefetch, SystemPrompt systemPrompt,
                         ConversationStore conversations, UsageLedger ledger, AppProperties props) {
         this.router = router;
         this.cache = cache;
@@ -73,6 +77,7 @@ public class AgentService {
         this.templates = templates;
         this.gateway = gateway;
         this.tools = tools;
+        this.prefetch = prefetch;
         this.systemPrompt = systemPrompt;
         this.conversations = conversations;
         this.ledger = ledger;
@@ -100,6 +105,7 @@ public class AgentService {
         boolean fromCache;
         boolean cacheable = true;
         final Set<String> toolsUsed = new LinkedHashSet<>();
+        final List<String> prefetched = new ArrayList<>();
     }
 
     public void handle(String sessionId, String userId, String message, AgentEvents events) {
@@ -139,7 +145,7 @@ public class AgentService {
         String answer;
         try {
             turn.route = gateway.effectiveRoute(turn.route);
-            answer = runAgent(sessionId, userId, question, turn, events);
+            answer = runAgent(sessionId, userId, question, decision.orderId(), turn, events);
         } catch (BudgetExceededException e) {
             log.warn(e.getMessage());
             turn.reason = "budget exceeded";
@@ -148,7 +154,8 @@ public class AgentService {
         finish(sessionId, userId, question, answer, turn, events);
     }
 
-    private String runAgent(String sessionId, String userId, String question, Turn turn, AgentEvents events) {
+    private String runAgent(String sessionId, String userId, String question, Optional<String> orderId,
+                            Turn turn, AgentEvents events) {
         String model = gateway.modelFor(turn.route);
         turn.model = model;
         OutputConfig.Effort effort = turn.route == Route.SMART ? OutputConfig.Effort.MEDIUM : OutputConfig.Effort.LOW;
@@ -158,6 +165,7 @@ public class AgentService {
         List<MessageParam> messages = new ArrayList<>(conversations.history(sessionId));
         messages.add(MessageParam.builder().role(MessageParam.Role.USER).content(question).build());
         ledger.recordLlmInput(question);
+        addPrefetchedResults(messages, question, orderId, sessionId, userId, turn, events);
 
         for (int round = 0; ; round++) {
             MessageCreateParams.Builder params = MessageCreateParams.builder()
@@ -199,7 +207,7 @@ public class AgentService {
                 messages.add(response.toParam());
                 messages.add(MessageParam.builder()
                         .role(MessageParam.Role.USER)
-                        .contentOfBlockParams(runTools(response, sessionId, userId, turn, events))
+                        .contentOfBlockParams(runTools(toolCalls(response), sessionId, userId, turn, events))
                         .build());
                 continue;
             }
@@ -218,8 +226,43 @@ public class AgentService {
     }
 
     /** Runs every tool call from one response in parallel and returns all results in one message. */
-    private List<ContentBlockParam> runTools(Message response, String sessionId, String userId, Turn turn, AgentEvents events) {
-        List<ToolUseBlock> calls = response.content().stream().flatMap(b -> b.toolUse().stream()).toList();
+    /**
+     * Runs the read-only calls the question obviously needs before the first model call and adds
+     * them as a tool-use exchange, so the model can answer in its first round. The system prompt
+     * and tool definitions are untouched, so the cached prompt prefix still applies.
+     */
+    private void addPrefetchedResults(List<MessageParam> messages, String question, Optional<String> orderId,
+                                      String sessionId, String userId, Turn turn, AgentEvents events) {
+        List<PrefetchPlanner.PlannedCall> planned = prefetch.plan(question, orderId);
+        if (planned.isEmpty()) {
+            return;
+        }
+        List<ToolUseBlock> calls = new ArrayList<>();
+        for (int i = 0; i < planned.size(); i++) {
+            calls.add(ToolUseBlock.builder()
+                    .id("toolu_prefetch_" + (i + 1))
+                    .name(planned.get(i).tool())
+                    .input(JsonValue.from(planned.get(i).input()))
+                    .caller(DirectCaller.builder().build())
+                    .build());
+        }
+        messages.add(MessageParam.builder()
+                .role(MessageParam.Role.ASSISTANT)
+                .contentOfBlockParams(calls.stream().map(c -> ContentBlockParam.ofToolUse(c.toParam())).toList())
+                .build());
+        messages.add(MessageParam.builder()
+                .role(MessageParam.Role.USER)
+                .contentOfBlockParams(runTools(calls, sessionId, userId, turn, events))
+                .build());
+        calls.forEach(c -> turn.prefetched.add(c.name()));
+    }
+
+    private static List<ToolUseBlock> toolCalls(Message response) {
+        return response.content().stream().flatMap(b -> b.toolUse().stream()).toList();
+    }
+
+    /** Runs tool calls in parallel and returns all results for one message. */
+    private List<ContentBlockParam> runTools(List<ToolUseBlock> calls, String sessionId, String userId, Turn turn, AgentEvents events) {
         calls.stream().map(c -> CommerceTools.statusMessage(c.name())).distinct().forEach(events::status);
 
         List<CompletableFuture<CommerceTools.Outcome>> futures = calls.stream()
@@ -282,6 +325,7 @@ public class AgentService {
         meta.put("cacheReadTokens", turn.cacheReadTokens);
         meta.put("costUsd", Math.round(turn.costUsd * 1_000_000.0) / 1_000_000.0);
         meta.put("tools", List.copyOf(turn.toolsUsed));
+        meta.put("prefetched", List.copyOf(turn.prefetched));
         meta.put("piiRedactions", turn.piiRedactions);
         meta.put("outputLeakBlocked", guarded.leakBlocked());
         events.answer(guarded.text(), meta);

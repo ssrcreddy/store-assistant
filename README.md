@@ -79,24 +79,33 @@ The eval run fails if the pass rate drops below 90% or **any** raw PII value app
 
 ### Results
 
-Golden-set run on 2026-10-29 with streaming: 17 cases against a warm orchestrator, Claude API, Haiku 5.5 for FAST and Sonnet 5.5 for SMART.
+Golden-set run on 2026-10-29 with streaming and prefetch: 17 cases, Claude API, Haiku 5.5 for FAST and Sonnet 5.5 for SMART.
 
 | Metric | Target | Measured |
 |---|---|---|
 | Eval pass rate | ≥ 90% | **100%** (17/17) |
-| p95 latency, template route | < 1.5 s | **97 ms** |
-| p95 latency, LLM route, full answer | < 4 s | **6.3 s** ❌ (p50 2.8 s; with 14 LLM samples, p95 is the slowest one) |
-| Time to first text, LLM route | | p50 **2.6 s**, p95 **6.3 s** |
-| Cost per request, FAST / SMART | | **$0.00016** / **$0.0046** |
-| Cost per request, eval mix | < $0.002 | **$0.0014** |
+| p95 latency, template route | < 1.5 s | **281 ms** |
+| p95 latency, LLM route, full answer | < 4 s | **5.2 s** ❌, set by the first call after a restart. The other 13 LLM answers were all under 4 s (max 3.99 s). |
+| Latency p50, FAST / SMART | | **1.4 s** / **3.5 s** |
+| Time to first text, LLM route | | p50 **1.3 s** |
+| Cost per request, FAST / SMART | | **$0.00011** / **$0.0039** |
+| Cost per request, eval mix | < $0.002 | **$0.0012** |
 | PII values reaching the LLM | 0 | **0** |
 | Share of requests with no LLM call | ≥ 30% | Not measured yet: needs a k6 run with a realistic traffic mix |
 
+What each change did (LLM route only):
+
+| | Full-answer p50 | Full-answer p95 | First text p50 |
+|---|---|---|---|
+| Baseline | 3.0 s | 5.0 s | n/a |
+| + streaming | 2.8 s | 6.3 s | 2.6 s |
+| + prefetch | **1.4 s** | 5.2 s (≤ 4.0 s once warm) | **1.3 s** |
+
 Notes:
 
-- The first LLM call after startup took 11.4 s (JVM warm-up, TLS connection, prompt-cache write). Warm the service before it takes traffic.
-- Streaming barely moved the numbers. Answers are short (150–650 characters), so writing them takes only 0.2–0.5 s. Most of the wait is before the first word: a model round to choose a tool, the tool call, then a second round. The next fix is fetching the data the router already knows is needed (for example the order for an `ORD-` ID) before the first model call, which saves a round.
-- On Sonnet the answer text arrived in one burst (under 60 ms from first to last text). The likely cause is the server-side refusal fallback holding output back. Not yet confirmed: compare a run with `LLM_FALLBACKS=false`.
+- The first LLM call after a restart is slow: 11.4 s and 5.2 s in two runs. Likely causes are JVM warm-up, opening the TLS connection and writing the prompt cache. Send a warm-up request before the service takes traffic.
+- Streaming alone barely helped. Answers are short (150–650 characters), so most of the wait came before the first word, in the model round that chooses a tool. Prefetching the lookups the router can predict removes that round, and that halved the median.
+- On Sonnet the answer text arrives in one burst (under 60 ms from first to last text). The likely cause is the server-side refusal fallback holding output back. Not yet confirmed: compare a run with `LLM_FALLBACKS=false`.
 
 ## Project layout
 
@@ -116,6 +125,7 @@ infra/aws/      AWS deployment target and Terraform plan
 - **The LLM proposes, code decides.** Write actions need an explicit user confirmation and an idempotency key.
 - **Trimmed tool results.** Projections leave out names, addresses and card data. That keeps PII out of the model and holds requests near 2,000 tokens.
 - **A stable prompt prefix.** The system prompt and tool definitions are byte-identical across requests and pods, so they're served from the prompt cache. That's why the tool schemas are built with `LinkedHashMap` and not `Map.of`.
+- **Prefetch what the rules already know.** When a question names an order or SKU, or asks about my orders or a policy, the read-only lookup runs before the first model call. Its result goes in as a tool-use exchange, which saves a model round. Write tools are never prefetched.
 - **History as plain text.** Earlier turns are kept as text only, and within a turn the message list is append-only. Both reduce tokens per request.
 
 ## Roadmap
