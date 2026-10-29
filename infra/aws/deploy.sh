@@ -18,6 +18,16 @@ fi
 
 step() { printf '\n==> %s\n' "$*"; }
 
+# Terraform's AWS provider doesn't read `aws login` / SSO sessions from the CLI cache, so hand it
+# the CLI's current temporary credentials through the environment (this process only).
+if [ -z "${AWS_ACCESS_KEY_ID:-}" ]; then
+  creds="$(aws configure export-credentials --format env-no-export 2>/dev/null || true)"
+  if [ -n "$creds" ]; then
+    eval "$(printf '%s\n' "$creds" | sed 's/^/export /')"
+  fi
+fi
+aws sts get-caller-identity --query Arn --output text
+
 step "Terraform init"
 terraform -chdir="$TF" init -input=false >/dev/null
 

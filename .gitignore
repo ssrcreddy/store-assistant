@@ -13,3 +13,6 @@ evals/results/
 *.tfstate.*
 terraform.tfvars
 crash.log
+tfplan
+*.tfplan
+plan.txt
