@@ -72,7 +72,7 @@ Or run the backend with Docker: `docker compose up --build` (reads `ANTHROPIC_AP
 
 ```bash
 node evals/run-evals.mjs            # golden set: pass rate, p50/p95, cost, PII leaks → evals/results/latest.json
-k6 run loadtest/chat.js             # 6 req/s design peak, then 15 req/s headroom
+k6 run -e NO_CACHE=1 loadtest/chat.js  # 6 req/s design peak, then 15 req/s; latency per route actually taken
 curl localhost:8080/api/metrics     # live spend, p95, routes, cache hits, PII counters
 ```
 
