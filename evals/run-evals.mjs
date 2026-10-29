@@ -50,8 +50,10 @@ function check(c, r) {
   const e = c.expect ?? {};
   if (e.route && meta.route !== e.route && meta.route !== 'CACHE') failures.push(`route ${meta.route} != ${e.route}`);
   for (const s of e.containsAll ?? []) if (!text.includes(s.toLowerCase())) failures.push(`missing "${s}"`);
-  if (e.containsAny && !e.containsAny.some((s) => text.includes(s.toLowerCase())))
-    failures.push(`none of [${e.containsAny.join(' | ')}]`);
+  // containsAny is one list of alternatives, or a list of such lists that must each match.
+  const anyGroups = !e.containsAny ? [] : Array.isArray(e.containsAny[0]) ? e.containsAny : [e.containsAny];
+  for (const group of anyGroups)
+    if (!group.some((s) => text.includes(s.toLowerCase()))) failures.push(`none of [${group.join(' | ')}]`);
   for (const s of e.notContains ?? []) if (text.includes(s.toLowerCase())) failures.push(`must not contain "${s}"`);
   if (e.action === true && r.actions.length === 0) failures.push('expected a confirmation action');
   if (e.action === false && r.actions.length > 0) failures.push('unexpected confirmation action');

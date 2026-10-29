@@ -77,16 +77,24 @@ curl localhost:8080/api/metrics     # live spend, p95, routes, cache hits, PII c
 
 The eval run fails if the pass rate drops below 90% or **any** raw PII value appears in the text sent to the LLM. CI runs the unit tests on every push; the eval job runs on demand (it spends tokens).
 
-### Results (fill these in from your runs)
+### Results
+
+Golden-set run on 2026-10-29: 17 cases against a warm orchestrator, Claude API, Haiku 5.5 for FAST and Sonnet 5.5 for SMART.
 
 | Metric | Target | Measured |
 |---|---|---|
-| Eval pass rate | ≥ 90% | |
-| p95 latency, template route | < 1.5 s | |
-| p95 latency, LLM route | < 4 s | |
-| Cost per request (mixed traffic) | < $0.002 | |
-| PII values reaching the LLM | 0 | |
-| Share of requests with no LLM call | ≥ 30% | |
+| Eval pass rate | ≥ 90% | **100%** (17/17) |
+| p95 latency, template route | < 1.5 s | **78 ms** |
+| p95 latency, LLM route | < 4 s | **5.0 s** ❌ (p50 3.0 s; with 14 LLM samples, p95 is the slowest one) |
+| Cost per request, FAST / SMART | | **$0.00017** / **$0.0038** |
+| Cost per request, eval mix | < $0.002 | **$0.0012** |
+| PII values reaching the LLM | 0 | **0** |
+| Share of requests with no LLM call | ≥ 30% | Not measured yet: needs a k6 run with a realistic traffic mix |
+
+Notes:
+
+- The first LLM call after startup took 11.4 s (JVM warm-up, TLS connection, prompt-cache write). Warm the service before it takes traffic.
+- The LLM p95 misses its target because answers arrive whole. Streaming the final answer (see Roadmap) is the next fix.
 
 ## Project layout
 
