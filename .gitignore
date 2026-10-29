@@ -7,3 +7,9 @@ target/
 evals/results/
 .idea/
 .vscode/
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+crash.log

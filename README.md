@@ -131,7 +131,7 @@ mock-apis/      Express stand-ins for the existing Order, Inventory, Payment API
 web/            React chat UI with confirmation cards and a live metrics panel
 evals/          Golden set (JSONL) and runner
 loadtest/       k6 script
-infra/aws/      AWS deployment target and Terraform plan
+infra/aws/      Terraform (CloudFront, ALB, ECS Fargate, Bedrock) and deploy.sh
 ```
 
 ## Design decisions
