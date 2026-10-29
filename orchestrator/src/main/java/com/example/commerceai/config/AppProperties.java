@@ -6,8 +6,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app")
 public record AppProperties(Llm llm, Budget budget, Agent agent, Tools tools, boolean debugEndpoints) {
 
-    /** provider: "anthropic" (Claude API) or "bedrock" (Claude on Amazon Bedrock). */
-    public record Llm(String provider, String fastModel, String smartModel, boolean fallbacksEnabled, int timeoutSeconds) {}
+    /**
+     * provider: "anthropic" (Claude API) or "bedrock" (Claude on Amazon Bedrock).
+     * warmup: send one tiny fast-model request at startup so the first user isn't served cold.
+     */
+    public record Llm(String provider, String fastModel, String smartModel, boolean fallbacksEnabled,
+                      int timeoutSeconds, boolean warmup) {}
 
     /** monthlyUsd: hard cap. degradeAtFraction: above this share of the cap, route everything to the fast model. */
     public record Budget(double monthlyUsd, double degradeAtFraction, long maxTokensPerSession) {}

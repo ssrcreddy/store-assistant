@@ -70,6 +70,15 @@ public class CommerceTools {
         };
     }
 
+    /** Opens the HTTP connection to the legacy APIs. The SKU doesn't exist; a 404 is expected and ignored. */
+    public void warmUp() {
+        try {
+            api.getInventory("SKU-WARMUP");
+        } catch (RuntimeException ignored) {
+            // Only the connection matters here.
+        }
+    }
+
     public Outcome execute(ToolUseBlock call, String userId, String sessionId) {
         Map<String, Object> in;
         try {

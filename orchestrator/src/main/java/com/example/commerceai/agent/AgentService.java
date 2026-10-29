@@ -168,15 +168,7 @@ public class AgentService {
         addPrefetchedResults(messages, question, orderId, sessionId, userId, turn, events);
 
         for (int round = 0; ; round++) {
-            MessageCreateParams.Builder params = MessageCreateParams.builder()
-                    .model(model)
-                    .maxTokens(gateway.maxTokensFor(turn.route))
-                    .systemOfTextBlockParams(List.of(systemPrompt.cachedBlock()))
-                    .outputConfig(OutputConfig.builder().effort(effort).build())
-                    .messages(messages);
-            for (Tool t : tools.definitions()) {
-                params.addTool(t);
-            }
+            MessageCreateParams.Builder params = requestFor(model, gateway.maxTokensFor(turn.route), effort, messages);
 
             StreamingGuard draft = new StreamingGuard(outputGuard, sessionId, text -> {
                 if (turn.firstTokenNanos == 0) {
@@ -226,6 +218,34 @@ public class AgentService {
     }
 
     /** Runs every tool call from one response in parallel and returns all results in one message. */
+    /** Same system prompt and tools on every request, so the prompt prefix stays cacheable. */
+    private MessageCreateParams.Builder requestFor(String model, long maxTokens, OutputConfig.Effort effort,
+                                                   List<MessageParam> messages) {
+        MessageCreateParams.Builder params = MessageCreateParams.builder()
+                .model(model)
+                .maxTokens(maxTokens)
+                .systemOfTextBlockParams(List.of(systemPrompt.cachedBlock()))
+                .outputConfig(OutputConfig.builder().effort(effort).build())
+                .messages(messages);
+        for (Tool t : tools.definitions()) {
+            params.addTool(t);
+        }
+        return params;
+    }
+
+    /**
+     * Pays the one-time costs (JIT, TLS to the model API and the legacy APIs, prompt-cache write)
+     * before real traffic arrives. One tiny fast-model request with the real prefix; nothing is
+     * shown to a user or stored in a conversation.
+     */
+    public void warmUp() {
+        tools.warmUp();
+        List<MessageParam> ping = List.of(MessageParam.builder()
+                .role(MessageParam.Role.USER).content("Reply with the single word OK.").build());
+        String model = gateway.modelFor(Route.FAST);
+        gateway.stream(requestFor(model, 16, OutputConfig.Effort.LOW, ping), model, text -> {});
+    }
+
     /**
      * Runs the read-only calls the question obviously needs before the first model call and adds
      * them as a tool-use exchange, so the model can answer in its first round. The system prompt

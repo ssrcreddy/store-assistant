@@ -13,6 +13,12 @@ management:
     web:
       exposure:
         include: health,info
+  endpoint:
+    health:
+      # /actuator/health/readiness returns 503 until startup (including the warm-up) has finished.
+      # Point the load balancer health check there.
+      probes:
+        enabled: true
 
 app:
   llm:
@@ -23,6 +29,8 @@ app:
     smart-model: ${SMART_MODEL:claude-sonnet-5-5}
     fallbacks-enabled: ${LLM_FALLBACKS:true}
     timeout-seconds: 30
+    # One tiny fast-model request at startup (about $0.0004) so the first user isn't served cold.
+    warmup: ${LLM_WARMUP:true}
   budget:
     monthly-usd: ${LLM_BUDGET_USD:3000}
     degrade-at-fraction: 0.9

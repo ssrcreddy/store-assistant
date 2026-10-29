@@ -64,6 +64,7 @@ Or run the backend with Docker: `docker compose up --build` (reads `ANTHROPIC_AP
 | `FAST_MODEL` / `SMART_MODEL` | `claude-haiku-5-5` / `claude-sonnet-5-5` | On Bedrock use `anthropic.claude-haiku-5-5` / `anthropic.claude-sonnet-5-5` |
 | `LLM_BUDGET_USD` | `3000` | Monthly cap; SMART downgrades to FAST at 90% |
 | `LLM_FALLBACKS` | `true` | Server-side refusal fallback on Sonnet (Claude API only). Set to `false` if your account rejects it. |
+| `LLM_WARMUP` | `true` | One tiny Haiku request at startup (about $0.0004) so the first user isn't served cold. `/actuator/health/readiness` stays 503 until it finishes. |
 | `MOCK_API_URL` | `http://localhost:4000` | Base URL of the legacy APIs |
 | `DEBUG_ENDPOINTS` | `true` | Exposes `/api/debug/llm-inputs` for the PII eval. Set to `false` outside dev. |
 
@@ -103,7 +104,7 @@ What each change did (LLM route only):
 
 Notes:
 
-- The first LLM call after a restart is slow: 11.4 s and 5.2 s in two runs. Likely causes are JVM warm-up, opening the TLS connection and writing the prompt cache. Send a warm-up request before the service takes traffic.
+- The first LLM call after a restart is slow: 11.4 s and 5.2 s in two runs. Likely causes are JVM warm-up, opening the TLS connection and writing the prompt cache. The orchestrator now sends a warm-up request at startup (`LLM_WARMUP`) and reports ready only after it.
 - Streaming alone barely helped. Answers are short (150–650 characters), so most of the wait came before the first word, in the model round that chooses a tool. Prefetching the lookups the router can predict removes that round, and that halved the median.
 - On Sonnet the answer text arrives in one burst (under 60 ms from first to last text). The likely cause is the server-side refusal fallback holding output back. Not yet confirmed: compare a run with `LLM_FALLBACKS=false`.
 

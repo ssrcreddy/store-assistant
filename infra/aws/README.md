@@ -15,6 +15,10 @@ CloudWatch + X-Ray (ADOT collector) ─ logs, metrics, traces, budget alarms at 
 ECR ─ images built by GitHub Actions (OIDC role, no long-lived AWS keys)
 ```
 
+## Health checks
+
+Point the ALB target group health check at `/actuator/health/readiness`. It returns 503 until startup has finished, including the warm-up request (`LLM_WARMUP`), so a new task only takes traffic once it's warm. The task's IAM role and network need access to Bedrock or the Claude API at startup for the warm-up to succeed. If it fails, the task still starts, just cold.
+
 ## Switching the orchestrator to Bedrock
 
 ```
