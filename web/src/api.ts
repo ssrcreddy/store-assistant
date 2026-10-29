@@ -3,6 +3,7 @@ export type Meta = {
   reason: string;
   model: string;
   latencyMs: number;
+  firstTokenMs: number;
   inputTokens: number;
   outputTokens: number;
   cacheReadTokens: number;
@@ -15,6 +16,8 @@ export type Meta = {
 export type ChatEvent =
   | { type: 'status'; message: string }
   | { type: 'action'; actionId: string; actionType: string; orderId: string; summary: string }
+  | { type: 'delta'; text: string }
+  | { type: 'reset' }
   | { type: 'answer'; text: string; meta: Meta }
   | { type: 'error'; message: string };
 
@@ -69,6 +72,10 @@ function parseEvent(raw: string): ChatEvent | null {
       return { type: 'status', message: payload.message };
     case 'action':
       return { type: 'action', actionId: payload.actionId, actionType: payload.type, orderId: payload.orderId, summary: payload.summary };
+    case 'delta':
+      return { type: 'delta', text: payload.text };
+    case 'reset':
+      return { type: 'reset' };
     case 'answer':
       return { type: 'answer', text: payload.text, meta: payload.meta };
     case 'error':

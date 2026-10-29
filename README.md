@@ -79,22 +79,24 @@ The eval run fails if the pass rate drops below 90% or **any** raw PII value app
 
 ### Results
 
-Golden-set run on 2026-10-29: 17 cases against a warm orchestrator, Claude API, Haiku 5.5 for FAST and Sonnet 5.5 for SMART.
+Golden-set run on 2026-10-29 with streaming: 17 cases against a warm orchestrator, Claude API, Haiku 5.5 for FAST and Sonnet 5.5 for SMART.
 
 | Metric | Target | Measured |
 |---|---|---|
 | Eval pass rate | ≥ 90% | **100%** (17/17) |
-| p95 latency, template route | < 1.5 s | **78 ms** |
-| p95 latency, LLM route | < 4 s | **5.0 s** ❌ (p50 3.0 s; with 14 LLM samples, p95 is the slowest one) |
-| Cost per request, FAST / SMART | | **$0.00017** / **$0.0038** |
-| Cost per request, eval mix | < $0.002 | **$0.0012** |
+| p95 latency, template route | < 1.5 s | **97 ms** |
+| p95 latency, LLM route, full answer | < 4 s | **6.3 s** ❌ (p50 2.8 s; with 14 LLM samples, p95 is the slowest one) |
+| Time to first text, LLM route | | p50 **2.6 s**, p95 **6.3 s** |
+| Cost per request, FAST / SMART | | **$0.00016** / **$0.0046** |
+| Cost per request, eval mix | < $0.002 | **$0.0014** |
 | PII values reaching the LLM | 0 | **0** |
 | Share of requests with no LLM call | ≥ 30% | Not measured yet: needs a k6 run with a realistic traffic mix |
 
 Notes:
 
 - The first LLM call after startup took 11.4 s (JVM warm-up, TLS connection, prompt-cache write). Warm the service before it takes traffic.
-- The LLM p95 misses its target because answers arrive whole. Streaming the final answer (see Roadmap) is the next fix.
+- Streaming barely moved the numbers. Answers are short (150–650 characters), so writing them takes only 0.2–0.5 s. Most of the wait is before the first word: a model round to choose a tool, the tool call, then a second round. The next fix is fetching the data the router already knows is needed (for example the order for an `ORD-` ID) before the first model call, which saves a round.
+- On Sonnet the answer text arrived in one burst (under 60 ms from first to last text). The likely cause is the server-side refusal fallback holding output back. Not yet confirmed: compare a run with `LLM_FALLBACKS=false`.
 
 ## Project layout
 
@@ -122,7 +124,7 @@ infra/aws/      AWS deployment target and Terraform plan
 - [x] Mock legacy APIs with ownership checks, idempotent cancel, latency and failure injection
 - [x] React chat with SSE, confirmation cards, live metrics
 - [x] Golden-set evals with a PII leak gate, k6 script, CI
-- [ ] Stream the final answer token by token (lower time to first token)
+- [x] Stream the answer as it's written, through a PII-safe streaming guard
 - [ ] Presidio sidecar for names and addresses
 - [ ] Redis for cache, vault and sessions; Postgres for audit and pgvector RAG
 - [ ] Resilience4j circuit breakers on the tool adapter

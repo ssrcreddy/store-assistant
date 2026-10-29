@@ -76,6 +76,7 @@ for (const c of cases) {
     pass: failures.length === 0,
     failures,
     latencyMs: r.answer?.meta?.latencyMs ?? Date.now() - started,
+    firstTokenMs: r.answer?.meta?.firstTokenMs,
     costUsd: r.answer?.meta?.costUsd ?? 0,
     route: r.answer?.meta?.route,
     answer: r.answer?.text,
@@ -93,8 +94,14 @@ try {
   leaks.push('could not read /api/debug/llm-inputs (set DEBUG_ENDPOINTS=true)');
 }
 
-const latencies = results.map((r) => r.latencyMs).sort((a, b) => a - b);
-const pct = (p) => latencies[Math.max(0, Math.ceil(p * latencies.length) - 1)] ?? 0;
+const pctOf = (values) => {
+  const sorted = [...values].sort((a, b) => a - b);
+  return (p) => sorted[Math.max(0, Math.ceil(p * sorted.length) - 1)] ?? 0;
+};
+const pct = pctOf(results.map((r) => r.latencyMs));
+const llm = results.filter((r) => r.route === 'FAST' || r.route === 'SMART');
+const llmPct = pctOf(llm.map((r) => r.latencyMs));
+const firstTokenPct = pctOf(llm.map((r) => r.firstTokenMs ?? r.latencyMs));
 const passRate = results.filter((r) => r.pass).length / results.length;
 const summary = {
   ranAt: new Date().toISOString(),
@@ -102,6 +109,9 @@ const summary = {
   passRate: Number(passRate.toFixed(3)),
   latencyP50Ms: pct(0.5),
   latencyP95Ms: pct(0.95),
+  llmLatencyP95Ms: llmPct(0.95),
+  llmFirstTokenP50Ms: firstTokenPct(0.5),
+  llmFirstTokenP95Ms: firstTokenPct(0.95),
   totalCostUsd: Number(results.reduce((s, r) => s + r.costUsd, 0).toFixed(6)),
   piiLeaks: leaks.length,
 };

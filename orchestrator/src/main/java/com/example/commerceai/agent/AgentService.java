@@ -16,6 +16,7 @@ import com.example.commerceai.llm.ModelPricing;
 import com.example.commerceai.llm.UsageLedger;
 import com.example.commerceai.privacy.OutputGuard;
 import com.example.commerceai.privacy.PiiRedactor;
+import com.example.commerceai.privacy.StreamingGuard;
 import com.example.commerceai.routing.IntentRouter;
 import com.example.commerceai.routing.ResponseCache;
 import com.example.commerceai.routing.Route;
@@ -86,6 +87,7 @@ public class AgentService {
     /** Mutable per-turn accounting, reported to the client as metadata. */
     private static final class Turn {
         final long startNanos = System.nanoTime();
+        long firstTokenNanos;
         Route route = Route.FAST;
         String reason = "";
         String model = "none";
@@ -168,9 +170,25 @@ public class AgentService {
                 params.addTool(t);
             }
 
-            Message response = gateway.call(params, model);
+            StreamingGuard draft = new StreamingGuard(outputGuard, sessionId, text -> {
+                if (turn.firstTokenNanos == 0) {
+                    turn.firstTokenNanos = System.nanoTime();
+                }
+                events.delta(text);
+            });
+            Message response = gateway.stream(params, model, draft::accept);
             account(turn, model, response);
             StopReason stop = response.stopReason().orElse(StopReason.END_TURN);
+
+            if (!stop.equals(StopReason.END_TURN) && !stop.equals(StopReason.MAX_TOKENS)) {
+                // Text before a tool call is a preamble, and a refusal is replaced by the handoff.
+                if (draft.discard()) {
+                    events.resetDraft();
+                    turn.firstTokenNanos = 0;
+                }
+            } else {
+                draft.flush();
+            }
 
             if (stop.equals(StopReason.TOOL_USE)) {
                 if (round >= props.agent().maxToolRounds()) {
@@ -257,6 +275,8 @@ public class AgentService {
         meta.put("model", turn.model);
         meta.put("promptVersion", SystemPrompt.VERSION);
         meta.put("latencyMs", latencyMs);
+        // Time until the first streamed answer text; equal to latency when nothing was streamed.
+        meta.put("firstTokenMs", turn.firstTokenNanos == 0 ? latencyMs : (turn.firstTokenNanos - turn.startNanos) / 1_000_000);
         meta.put("inputTokens", turn.inputTokens);
         meta.put("outputTokens", turn.outputTokens);
         meta.put("cacheReadTokens", turn.cacheReadTokens);

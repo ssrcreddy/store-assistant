@@ -20,7 +20,8 @@ import java.util.concurrent.ExecutorService;
 
 /**
  * POST /api/chat streams Server-Sent Events: "status" (progress), "action" (needs confirmation),
- * "answer" (final text + metadata) and "error".
+ * "delta" (answer text as the model writes it), "reset" (drop the streamed text), "answer"
+ * (final text + metadata, which replaces the streamed text) and "error".
  *
  * Demo auth: the user ID comes from the X-User-Id header. In production it comes from a verified
  * JWT (Amazon Cognito) via Spring Security's resource server support, never from the client.
@@ -65,6 +66,16 @@ public class ChatController {
         @Override
         public void actionRequired(String actionId, String type, String orderId, String summary) {
             send(emitter, "action", Map.of("actionId", actionId, "type", type, "orderId", orderId, "summary", summary));
+        }
+
+        @Override
+        public void delta(String text) {
+            send(emitter, "delta", Map.of("text", text));
+        }
+
+        @Override
+        public void resetDraft() {
+            send(emitter, "reset", Map.of());
         }
 
         @Override

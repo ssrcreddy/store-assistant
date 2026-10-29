@@ -58,12 +58,37 @@ export default function App() {
     setBusy(true);
     setStatus('Thinking');
     setMessages((m) => [...m, { id: nextId(), role: 'user', text: trimmed }]);
+    // The bubble that streamed text is going into, if any. The final answer replaces its text.
+    let draftId: string | null = null;
     try {
       await sendChat(userId, sessionId, trimmed, (e) => {
         if (e.type === 'status') setStatus(e.message);
         if (e.type === 'action')
           setMessages((m) => [...m, { id: nextId(), role: 'action', actionId: e.actionId, summary: e.summary, state: 'pending' }]);
-        if (e.type === 'answer') setMessages((m) => [...m, { id: nextId(), role: 'assistant', text: e.text, meta: e.meta }]);
+        if (e.type === 'delta') {
+          setStatus(null);
+          if (draftId === null) {
+            const id = (draftId = nextId());
+            setMessages((m) => [...m, { id, role: 'assistant', text: e.text }]);
+          } else {
+            const id = draftId;
+            setMessages((m) => m.map((x) => (x.id === id && x.role === 'assistant' ? { ...x, text: x.text + e.text } : x)));
+          }
+        }
+        if (e.type === 'reset' && draftId !== null) {
+          const id = draftId;
+          draftId = null;
+          setMessages((m) => m.filter((x) => x.id !== id));
+        }
+        if (e.type === 'answer') {
+          const id = draftId;
+          draftId = null;
+          setMessages((m) =>
+            id === null
+              ? [...m, { id: nextId(), role: 'assistant', text: e.text, meta: e.meta }]
+              : m.map((x) => (x.id === id ? { id, role: 'assistant', text: e.text, meta: e.meta } : x)),
+          );
+        }
         if (e.type === 'error') setMessages((m) => [...m, { id: nextId(), role: 'assistant', text: e.message, error: true }]);
       });
     } catch {
@@ -169,6 +194,7 @@ function MetaLine({ meta }: { meta: Meta }) {
   const parts = [
     meta.route,
     meta.model !== 'none' ? meta.model : null,
+    meta.firstTokenMs < meta.latencyMs ? `first text ${meta.firstTokenMs} ms` : null,
     `${meta.latencyMs} ms`,
     meta.costUsd > 0 ? `$${meta.costUsd.toFixed(5)}` : '$0',
     meta.tools.length ? `tools: ${meta.tools.join(', ')}` : null,
