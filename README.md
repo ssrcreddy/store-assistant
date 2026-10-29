@@ -80,17 +80,17 @@ The eval run fails if the pass rate drops below 90% or **any** raw PII value app
 
 ### Results
 
-Golden-set run on 2026-10-29 with streaming and prefetch: 17 cases, Claude API, Haiku 5.5 for FAST and Sonnet 5.5 for SMART.
+Golden-set run on 2026-10-29 with streaming, prefetch and startup warm-up: 17 cases, Claude API, Haiku 5.5 for FAST and Sonnet 5.5 for SMART.
 
 | Metric | Target | Measured |
 |---|---|---|
 | Eval pass rate | ≥ 90% | **100%** (17/17) |
-| p95 latency, template route | < 1.5 s | **281 ms** |
-| p95 latency, LLM route, full answer | < 4 s | **5.2 s** ❌, set by the first call after a restart. The other 13 LLM answers were all under 4 s (max 3.99 s). |
-| Latency p50, FAST / SMART | | **1.4 s** / **3.5 s** |
+| p95 latency, template route | < 1.5 s | **93 ms** |
+| p95 latency, LLM route, full answer | < 4 s | **4.8 s** ❌, set by Sonnet (write actions and complaints). Every Haiku answer was under 2.8 s. |
+| Latency p50, FAST / SMART | | **1.3 s** / **3.7 s** |
 | Time to first text, LLM route | | p50 **1.3 s** |
-| Cost per request, FAST / SMART | | **$0.00011** / **$0.0039** |
-| Cost per request, eval mix | < $0.002 | **$0.0012** |
+| Cost per request, FAST / SMART | | **$0.00010** / **$0.0046** |
+| Cost per request, eval mix | < $0.002 | **$0.0014** |
 | PII values reaching the LLM | 0 | **0** |
 | Share of requests with no LLM call | ≥ 30% | Not measured yet: needs a k6 run with a realistic traffic mix |
 
@@ -101,6 +101,7 @@ What each change did (LLM route only):
 | Baseline | 3.0 s | 5.0 s | n/a |
 | + streaming | 2.8 s | 6.3 s | 2.6 s |
 | + prefetch | **1.4 s** | 5.2 s (≤ 4.0 s once warm) | **1.3 s** |
+| + startup warm-up | 1.4 s | **4.8 s** (first call 2.1 s, was 5.2 s) | 1.3 s |
 
 Notes:
 
