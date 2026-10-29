@@ -107,7 +107,8 @@ Notes:
 
 - The first LLM call after a restart is slow: 11.4 s and 5.2 s in two runs. Likely causes are JVM warm-up, opening the TLS connection and writing the prompt cache. The orchestrator now sends a warm-up request at startup (`LLM_WARMUP`) and reports ready only after it.
 - Streaming alone barely helped. Answers are short (150–650 characters), so most of the wait came before the first word, in the model round that chooses a tool. Prefetching the lookups the router can predict removes that round, and that halved the median.
-- On Sonnet the answer text arrives in one burst (under 60 ms from first to last text). The likely cause is the server-side refusal fallback holding output back. Not yet confirmed: compare a run with `LLM_FALLBACKS=false`.
+- On Sonnet the answer text arrives in one burst (under 60 ms from first to last text). The server-side refusal fallback is not the cause: a run with `LLM_FALLBACKS=false` showed the same burst and the same Sonnet latency (p50 3.4 s against 3.7 s), so the fallback stays on.
+- With 17 cases, p95 is the single slowest answer, and runs vary widely. Across four runs the LLM-route p95 was 6.3, 5.2, 4.8 and 8.4 s. In the slowest run, two Haiku answers waited about 8 s for their first word; the requests were unchanged, so the delay was most likely on the API side. Use the k6 run (about 1,600 requests) for p95, and the golden set for correctness and cost.
 
 ## Project layout
 
