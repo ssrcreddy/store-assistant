@@ -52,7 +52,14 @@ cd orchestrator && mvn spring-boot:run
 cd web && npm install && npm run dev
 ```
 
-Or run the backend with Docker: `docker compose up --build` (reads `ANTHROPIC_API_KEY` from your shell).
+Or run the backend with Docker: `docker compose up --build` (reads `ANTHROPIC_API_KEY` from your shell). That also starts Postgres with pgvector and turns on RAG.
+
+**With RAG (knowledge-base search) in the step-by-step setup:** start the database, then run the orchestrator with `RAG_ENABLED=true`:
+
+```bash
+docker compose up -d postgres          # pgvector on host port 54329
+RAG_ENABLED=true mvn spring-boot:run   # in orchestrator/; Flyway creates the schema, chunks are embedded at startup
+```
 
 **Demo users:** `u-1001` (Asha, 4 orders) and `u-1002` (Daniel, 1 order). Switch between them in the UI to see ownership checks: Daniel can't see Asha's orders.
 
@@ -66,12 +73,16 @@ Or run the backend with Docker: `docker compose up --build` (reads `ANTHROPIC_AP
 | `LLM_FALLBACKS` | `true` | Server-side refusal fallback on Sonnet (Claude API only). Set to `false` if your account rejects it. |
 | `LLM_WARMUP` | `true` | One tiny Haiku request at startup (about $0.0004) so the first user isn't served cold. `/actuator/health/readiness` stays 503 until it finishes. |
 | `MOCK_API_URL` | `http://localhost:4000` | Base URL of the legacy APIs |
-| `DEBUG_ENDPOINTS` | `true` | Exposes `/api/debug/llm-inputs` for the PII eval. Set to `false` outside dev. |
+| `DEBUG_ENDPOINTS` | `true` | Exposes `/api/debug/llm-inputs` (PII eval) and `/api/debug/kb-search` (retrieval eval). Set to `false` outside dev. |
+| `RAG_ENABLED` | `false` | `true`: hybrid search over Postgres + pgvector with a local embedding model. `false`: in-memory keyword search, no database (the AWS demo). |
+| `DB_URL` / `DB_USER` / `DB_PASSWORD` | `jdbc:postgresql://localhost:54329/store` / `store` / `store` | Knowledge-base database; only used when `RAG_ENABLED=true` |
+| `RAG_KEYWORD_WEIGHT` | `1.0` | Weight of full-text ranks in rank fusion (vector ranks weigh 1.0) |
 
 ## Prove it: evals, PII and load
 
 ```bash
 node evals/run-evals.mjs            # golden set: pass rate, p50/p95, cost, PII leaks → evals/results/latest.json
+node evals/run-retrieval-evals.mjs  # RAG only: keyword vs vector vs hybrid recall@1/@3, MRR (no LLM, free)
 k6 run -e NO_CACHE=1 loadtest/chat.js  # 6 req/s design peak, then 15 req/s; latency per route actually taken
 curl localhost:8080/api/metrics     # live spend, p95, routes, cache hits, PII counters
 ```
@@ -123,13 +134,29 @@ Run on 2026-10-29 on a laptop: 6 req/s for 2 minutes (design peak), then 15 req/
 
 1,622 requests, 0 errors, all thresholds passed. The service held 15 req/s with no rise in latency on the non-LLM paths. The mix has no SMART questions and the cache absorbed most LLM-route repeats, so the Haiku figures rest on 27 samples. `k6 run -e NO_CACHE=1 loadtest/chat.js` makes every LLM-route question reach the model.
 
+### Retrieval (RAG)
+
+The knowledge base is 6 markdown documents (`orchestrator/src/main/resources/knowledge/`) split into 30 chunks, one per section. `evals/retrieval.jsonl` has 24 questions with the chunk that should answer each: 9 that share words with the policy text, 14 paraphrases with no shared keywords ("I wasn't home when the courier came"), and 1 typo. Run on 2026-10-30 with all-MiniLM-L6-v2 embeddings:
+
+| Search | recall@1 | recall@3 | MRR |
+|---|---|---|---|
+| Keyword only (Postgres full-text, all words must match) | 0.21 | 0.21 | 0.21 |
+| Vector only (pgvector, cosine) | 0.83 | **1.00** | 0.91 |
+| **Hybrid** (rank fusion of both) | **0.83** | **1.00** | **0.91** |
+
+How the settings were chosen, and what didn't work:
+
+- **Distance cutoff 0.85.** Correct chunks were at most 0.81 from their question; off-topic questions ("Tell me a joke", "What's the weather in Paris?") were at least 0.87 from any chunk. So off-topic questions retrieve nothing, and the tool tells Claude not to guess. A first cutoff of 0.75 dropped four valid paraphrases.
+- **Keyword matching requires all words.** Matching *any* word made hybrid worse than vector alone (recall@3 0.79), because generic words like "order" or "add" pulled in unrelated chunks. With AND, hybrid equals vector here and only adds weight on strong exact matches, such as SKU codes, which this question set doesn't cover.
+- **Caveat:** the cutoff and the AND choice were tuned on the same 24 questions they're scored on. A held-out question set is the next step before trusting these numbers on new content.
+
 ## Project layout
 
 ```
-orchestrator/   Spring Boot service: privacy/, routing/, llm/, agent/, tools/, api/
+orchestrator/   Spring Boot service: privacy/, routing/, llm/, agent/, tools/, knowledge/, api/
 mock-apis/      Express stand-ins for the existing Order, Inventory, Payment APIs
 web/            React chat UI with confirmation cards and a live metrics panel
-evals/          Golden set (JSONL) and runner
+evals/          Golden set and retrieval set (JSONL) with their runners
 loadtest/       k6 script
 infra/aws/      Terraform (CloudFront, ALB, ECS Fargate, Bedrock) and deploy.sh
 ```
@@ -142,6 +169,7 @@ infra/aws/      Terraform (CloudFront, ALB, ECS Fargate, Bedrock) and deploy.sh
 - **Trimmed tool results.** Projections leave out names, addresses and card data. That keeps PII out of the model and holds requests near 2,000 tokens.
 - **A stable prompt prefix.** The system prompt and tool definitions are byte-identical across requests and pods, so they're served from the prompt cache. That's why the tool schemas are built with `LinkedHashMap` and not `Map.of`.
 - **Prefetch what the rules already know.** When a question names an order or SKU, or asks about my orders or a policy, the read-only lookup runs before the first model call. Its result goes in as a tool-use exchange, which saves a model round. Write tools are never prefetched.
+- **Retrieval is measured, not assumed.** Keyword, vector and hybrid search run on the same question set, and the settings come from those numbers (see Results). Postgres holds both the vectors and the full-text index, so there's no separate vector database to run. Chunks are re-embedded only when their content or the embedding model changes.
 - **History as plain text.** Earlier turns are kept as text only, and within a turn the message list is append-only. Both reduce tokens per request.
 
 ## Roadmap
@@ -151,8 +179,10 @@ infra/aws/      Terraform (CloudFront, ALB, ECS Fargate, Bedrock) and deploy.sh
 - [x] React chat with SSE, confirmation cards, live metrics
 - [x] Golden-set evals with a PII leak gate, k6 script, CI
 - [x] Stream the answer as it's written, through a PII-safe streaming guard
+- [x] RAG: Postgres + pgvector hybrid search, local embeddings, retrieval evals (local; off on AWS)
+- [ ] RAG on AWS: RDS Postgres with pgvector and Amazon Titan embeddings on Bedrock
 - [ ] Presidio sidecar for names and addresses
-- [ ] Redis for cache, vault and sessions; Postgres for audit and pgvector RAG
+- [ ] Redis for cache, vault and sessions; Postgres for the audit trail
 - [ ] Resilience4j circuit breakers on the tool adapter
 - [ ] Cognito JWT auth in place of the demo header
 - [ ] OpenTelemetry tracing, CloudWatch dashboards

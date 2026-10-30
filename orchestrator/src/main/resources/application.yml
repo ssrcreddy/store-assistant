@@ -7,6 +7,13 @@ spring:
   mvc:
     async:
       request-timeout: 65s
+  # Only used when RAG_ENABLED=true. The pool connects lazily, so without RAG no database is needed.
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:54329/store}
+    username: ${DB_USER:store}
+    password: ${DB_PASSWORD:store}
+  flyway:
+    enabled: ${RAG_ENABLED:false}
 
 management:
   endpoints:
@@ -19,6 +26,9 @@ management:
       # Point the load balancer health check there.
       probes:
         enabled: true
+  health:
+    db:
+      enabled: ${RAG_ENABLED:false}
 
 app:
   llm:
@@ -43,6 +53,16 @@ app:
   tools:
     base-url: ${MOCK_API_URL:http://localhost:4000}
     timeout-ms: 800
+  rag:
+    # false: in-memory keyword search over classpath:knowledge/*.md (no database).
+    # true:  hybrid search (Postgres full-text + pgvector) with a local embedding model.
+    enabled: ${RAG_ENABLED:false}
+    # Vector matches further than this cosine distance are dropped (0 = identical, 2 = opposite).
+    # Measured with all-MiniLM-L6-v2: correct chunks were at most 0.81 away, off-topic questions
+    # ("tell me a joke") at least 0.87. Re-measure if the embedding model changes.
+    max-vector-distance: 0.85
+    # Weight of full-text ranks in reciprocal rank fusion (vector ranks weigh 1.0).
+    keyword-weight: ${RAG_KEYWORD_WEIGHT:1.0}
   debug-endpoints: ${DEBUG_ENDPOINTS:true}
 
 logging:

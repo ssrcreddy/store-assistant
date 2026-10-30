@@ -1,4 +1,21 @@
 services:
+  # Knowledge base for RAG. Start on its own for local runs: docker compose up -d postgres
+  postgres:
+    image: pgvector/pgvector:0.8.6-pg17
+    ports:
+      - "54329:5432" # uncommon host port, so it never clashes with a locally installed Postgres (5432/5433)
+    environment:
+      POSTGRES_DB: store
+      POSTGRES_USER: store
+      POSTGRES_PASSWORD: store
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U store -d store"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   mock-apis:
     build: ./mock-apis
     ports:
@@ -12,9 +29,14 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - mock-apis
+      mock-apis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
     environment:
       MOCK_API_URL: http://mock-apis:4000
+      RAG_ENABLED: "true"
+      DB_URL: jdbc:postgresql://postgres:5432/store
       LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       AWS_REGION: ${AWS_REGION:-}
@@ -22,3 +44,6 @@ services:
       SMART_MODEL: ${SMART_MODEL:-claude-sonnet-5-5}
       LLM_BUDGET_USD: ${LLM_BUDGET_USD:-3000}
       DEBUG_ENDPOINTS: "true"
+
+volumes:
+  pgdata:

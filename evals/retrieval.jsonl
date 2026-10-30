@@ -1,0 +1,24 @@
+{"id":"kw-return-window","kind":"keyword","query":"What is the return window for electronics?","expect":"returns#return-window"}
+{"id":"kw-refund-timing","kind":"keyword","query":"How long do refunds take?","expect":"refunds#refund-timing"}
+{"id":"kw-express","kind":"keyword","query":"How much is express shipping?","expect":"shipping#shipping-costs"}
+{"id":"kw-cancel","kind":"keyword","query":"Can I cancel an order after it has shipped?","expect":"orders#cancelling-an-order"}
+{"id":"kw-gift-card","kind":"keyword","query":"Do gift cards expire?","expect":"payments#gift-cards"}
+{"id":"kw-warranty","kind":"keyword","query":"Is liquid damage covered by the warranty?","expect":"warranty#warranty-coverage"}
+{"id":"kw-invoice","kind":"keyword","query":"Where can I download my invoice?","expect":"payments#invoices-and-receipts"}
+{"id":"kw-cod","kind":"keyword","query":"Do you accept cash on delivery?","expect":"payments#accepted-payment-methods"}
+{"id":"para-send-back","kind":"paraphrase","query":"Can I send my headphones back if I don't like them?","expect":"returns#return-window"}
+{"id":"para-money-back","kind":"paraphrase","query":"When will I get my money back?","expect":"refunds#refund-timing"}
+{"id":"para-swap-size","kind":"paraphrase","query":"The shoes are too small, can I get a bigger size?","expect":"returns#exchanges"}
+{"id":"para-not-home","kind":"paraphrase","query":"I wasn't home when the courier came","expect":"shipping#missed-or-failed-delivery"}
+{"id":"para-arrived-broken","kind":"paraphrase","query":"My parcel came smashed and the screen is cracked","expect":"orders#damaged-or-wrong-items"}
+{"id":"para-two-charges","kind":"paraphrase","query":"My bank shows the same purchase twice","expect":"refunds#charged-twice-or-wrong-amount"}
+{"id":"para-wrong-address","kind":"paraphrase","query":"I typed the wrong street when ordering","expect":"shipping#changing-the-delivery-address"}
+{"id":"para-abroad","kind":"paraphrase","query":"Can you deliver to my sister in Canada?","expect":"shipping#international-shipping"}
+{"id":"para-talk-human","kind":"paraphrase","query":"I want to speak to a real person","expect":"warranty#contacting-human-support"}
+{"id":"para-stopped-working","kind":"paraphrase","query":"My speaker stopped turning on after four months","expect":"warranty#making-a-warranty-claim"}
+{"id":"para-add-item","kind":"paraphrase","query":"I forgot to put a charger in my basket, can you add it?","expect":"orders#changing-an-order"}
+{"id":"para-something-missing","kind":"paraphrase","query":"Only one of the two things I bought was in the box","expect":"orders#missing-items-from-an-order"}
+{"id":"para-otp","kind":"paraphrase","query":"Someone on the phone asked for the code from my SMS, is that you?","expect":"payments#card-security"}
+{"id":"para-hygiene","kind":"paraphrase","query":"Can I return a used razor?","expect":"returns#items-that-cannot-be-returned"}
+{"id":"typo-retrun","kind":"typo","query":"retrun polcy for laptops","expect":"returns#return-window"}
+{"id":"kw-store-credit","kind":"keyword","query":"Can I get store credit instead of a refund?","expect":"refunds#refunds-to-store-credit"}

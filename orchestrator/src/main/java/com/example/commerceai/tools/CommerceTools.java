@@ -3,6 +3,7 @@ package com.example.commerceai.tools;
 import com.anthropic.core.JsonValue;
 import com.anthropic.models.messages.Tool;
 import com.anthropic.models.messages.ToolUseBlock;
+import com.example.commerceai.knowledge.KnowledgeBase;
 import com.example.commerceai.privacy.PiiRedactor;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,12 +30,12 @@ public class CommerceTools {
 
     private final CommerceApiClient api;
     private final PolicyEngine policy;
-    private final PolicyKnowledgeBase kb;
+    private final KnowledgeBase kb;
     private final PiiRedactor redactor;
     private final ObjectMapper json;
     private final List<Tool> definitions;
 
-    public CommerceTools(CommerceApiClient api, PolicyEngine policy, PolicyKnowledgeBase kb,
+    public CommerceTools(CommerceApiClient api, PolicyEngine policy, KnowledgeBase kb,
                          PiiRedactor redactor, ObjectMapper json) {
         this.api = api;
         this.policy = policy;
@@ -96,7 +97,7 @@ public class CommerceTools {
                 case "get_payment_status" -> Outcome.ok(write(paymentView(api.getPayment(userId, str(in, "order_id")))));
                 case "create_payment_link" -> Outcome.ok(write(api.createPaymentLink(userId, str(in, "order_id"))));
                 case "cancel_order" -> proposeCancel(userId, sessionId, str(in, "order_id"), str(in, "reason"));
-                case "search_policy" -> Outcome.ok(String.join("\n", kb.search(str(in, "query"), 3)));
+                case "search_policy" -> Outcome.ok(passages(kb.search(str(in, "query"), 3)));
                 default -> Outcome.error("Unknown tool " + call.name());
             };
             return new Outcome(redactor.redact(sessionId, outcome.content()).text(), outcome.isError(), outcome.pendingAction());
@@ -107,6 +108,18 @@ public class CommerceTools {
         } catch (ResourceAccessException e) {
             return Outcome.error("The service is not responding right now. Tell the user to try again shortly.");
         }
+    }
+
+    /** Each passage carries its source id, so answers and logs can say which policy they came from. */
+    private static String passages(List<KnowledgeBase.Passage> found) {
+        if (found.isEmpty()) {
+            return "No matching policy found. Do not guess; offer to connect the customer with support.";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (KnowledgeBase.Passage p : found) {
+            sb.append('[').append(p.id()).append("] ").append(p.title()).append(": ").append(p.text()).append('\n');
+        }
+        return sb.toString().trim();
     }
 
     private Outcome proposeCancel(String userId, String sessionId, String orderId, String reason) {
@@ -191,7 +204,7 @@ public class CommerceTools {
                         props("order_id", orderId)),
                 tool("cancel_order", "Propose cancelling an order. This does NOT cancel it: the user must confirm in the app.",
                         props("order_id", orderId, "reason", prop("string", "Short reason in the customer's words"))),
-                tool("search_policy", "Search the store's return, refund, shipping and payment policies.",
+                tool("search_policy", "Search the store's policies and help articles: returns, exchanges, refunds, shipping, orders, payments, warranty.",
                         props("query", prop("string", "What to look up, e.g. 'return window for electronics'"))));
     }
 
