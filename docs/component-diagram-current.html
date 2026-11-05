@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Assistant Components (Current)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root {
+  --bg: #f6f7f9; --surface: #ffffff; --fg: #141922; --muted: #5a6371; --line: #d6dbe2; --arrow: #3a4351;
+  --leg-fill: #eceef1; --leg-stroke: #858d99;
+  --new-fill: #e2ecfb; --new-stroke: #2c6bd3;
+  --ai-fill: #eee7fb; --ai-stroke: #6f43c6; --ai-band: #f7f3fe;
+  --ext-fill: #fcf0da; --ext-stroke: #b9770c;
+  --plan-fill: #ffffff; --plan-stroke: #98a0ad;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1218; --surface: #161a22; --fg: #e5e8ee; --muted: #9aa3b1; --line: #2b313c; --arrow: #b4bcc8;
+  --leg-fill: #20252d; --leg-stroke: #8a929e;
+  --new-fill: #13233c; --new-stroke: #6c9fef;
+  --ai-fill: #23193a; --ai-stroke: #a687eb; --ai-band: #19142a;
+  --ext-fill: #32250e; --ext-stroke: #dfa23a;
+  --plan-fill: #161a22; --plan-stroke: #7c8592;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f1218; --surface: #161a22; --fg: #e5e8ee; --muted: #9aa3b1; --line: #2b313c; --arrow: #b4bcc8;
+  --leg-fill: #20252d; --leg-stroke: #8a929e;
+  --new-fill: #13233c; --new-stroke: #6c9fef;
+  --ai-fill: #23193a; --ai-stroke: #a687eb; --ai-band: #19142a;
+  --ext-fill: #32250e; --ext-stroke: #dfa23a;
+  --plan-fill: #161a22; --plan-stroke: #7c8592;
+  color-scheme: dark }
+
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 36px; }
+header { display: grid; gap: 10px; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-size: clamp(26px, 4vw, 36px); line-height: 1.15; margin: 0; font-weight: 700; text-wrap: balance; }
+h2 { font-size: 20px; margin: 0 0 12px; font-weight: 600; text-wrap: balance; }
+p { margin: 0; max-width: 72ch; }
+.lede { color: var(--muted); }
+a { color: var(--new-stroke); }
+code { font-family: var(--mono); font-size: .9em; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 10px 20px; font-size: 13px; }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.sw { width: 18px; height: 12px; border-radius: 3px; border: 1.5px solid; display: inline-block; }
+.sw.leg { background: var(--leg-fill); border-color: var(--leg-stroke); }
+.sw.new { background: var(--new-fill); border-color: var(--new-stroke); }
+.sw.ai { background: var(--ai-fill); border-color: var(--ai-stroke); }
+.sw.ext { background: var(--ext-fill); border-color: var(--ext-stroke); }
+.sw.plan { background: var(--plan-fill); border-color: var(--plan-stroke); border-style: dashed; }
+
+.callout { border-left: 3px solid var(--ai-stroke); background: var(--surface); padding: 14px 18px; border-radius: 0; }
+.callout strong { font-weight: 600; }
+
+.diagram { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; padding: 12px; }
+.diagram svg { display: block; width: 100%; min-width: 900px; height: auto; }
+svg text { font-family: var(--sans); fill: var(--fg); }
+svg .lb { font-size: 13px; font-weight: 600; }
+svg .sb { font-size: 11px; fill: var(--muted); }
+svg .band { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; fill: var(--muted); font-weight: 500; }
+svg .leg rect { fill: var(--leg-fill); stroke: var(--leg-stroke); stroke-width: 1.5; }
+svg .new rect { fill: var(--new-fill); stroke: var(--new-stroke); stroke-width: 1.5; }
+svg .ai rect { fill: var(--ai-fill); stroke: var(--ai-stroke); stroke-width: 1.5; }
+svg .ext rect { fill: var(--ext-fill); stroke: var(--ext-stroke); stroke-width: 1.5; }
+svg .plan rect { fill: var(--plan-fill); stroke: var(--plan-stroke); stroke-width: 1.5; stroke-dasharray: 5 4; }
+svg .aiband { fill: var(--ai-band); stroke: var(--ai-stroke); stroke-width: 1; stroke-dasharray: 3 3; }
+svg .group { fill: none; stroke: var(--line); stroke-width: 1.5; }
+svg .grouplg { fill: none; stroke: var(--leg-stroke); stroke-width: 1.5; stroke-dasharray: 6 4; }
+svg .ar { stroke: var(--arrow); stroke-width: 1.6; fill: none; }
+svg .ar.dash { stroke-dasharray: 4 4; }
+svg .ah { fill: var(--arrow); }
+svg .bd circle { fill: var(--fg); }
+svg .bd text { fill: var(--bg); font-family: var(--mono); font-size: 10.5px; font-weight: 500; text-anchor: middle; }
+
+ol.steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; counter-reset: s; max-width: 80ch; }
+ol.steps li { display: grid; grid-template-columns: 26px 1fr; gap: 12px; align-items: start; counter-increment: s; }
+ol.steps li::before { content: counter(s); width: 22px; height: 22px; border-radius: 50%; background: var(--fg); color: var(--bg);
+  font-family: var(--mono); font-size: 12px; display: grid; place-items: center; margin-top: 1px; }
+
+.tablebox { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--mono); font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+tr:last-child td { border-bottom: 0; }
+tr.sec td { background: var(--bg); font-weight: 600; font-size: 13px; }
+.pill { display: inline-block; font-family: var(--mono); font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+.pill.leg { background: var(--leg-fill); border-color: var(--leg-stroke); }
+.pill.new { background: var(--new-fill); border-color: var(--new-stroke); }
+.pill.ai { background: var(--ai-fill); border-color: var(--ai-stroke); }
+.pill.ext { background: var(--ext-fill); border-color: var(--ext-stroke); }
+.pill.plan { background: var(--plan-fill); border-color: var(--plan-stroke); border-style: dashed; }
+.note { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Architecture · Component view · As built, 5 November 2026</div>
+    <h1>AI Assistant Components: current state</h1>
+    <p class="lede">What is actually built today in store-assistant, what stands in for real systems, and what is still planned. The original target design is in <a href="component-diagram-original.html">component-diagram-original.html</a>.</p>
+  </header>
+
+  <div class="legend" aria-label="Legend">
+    <span><i class="sw leg"></i>Legacy system (mock stand-in here)</span>
+    <span><i class="sw new"></i>New platform component, built</span>
+    <span><i class="sw ai"></i>New AI layer, built</span>
+    <span><i class="sw ext"></i>External model service</span>
+    <span><i class="sw plan"></i>Planned, not built yet</span>
+  </div>
+
+  <div class="callout"><strong>Still no legacy system changes.</strong> The AI layers reach the Order, Inventory and Payment APIs only through the tool adapter, which uses the signed-in user's identity. In this project, Express mock APIs stand in for those systems.</div>
+
+  <div class="diagram">
+    <svg viewBox="0 0 1120 920" role="img" aria-label="Current component diagram: React chat, CloudFront and load balancer, orchestrator with AI layers, Claude, and mock legacy APIs. Dashed boxes are planned and not built.">
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path class="ah" d="M0 0L10 5L0 10z"/>
+        </marker>
+      </defs>
+
+      <!-- Channels -->
+      <text class="band" x="40" y="22">CHANNELS</text>
+      <g class="new"><rect x="40" y="30" width="260" height="52" rx="6"/></g>
+      <text class="lb" x="52" y="52">React chat UI</text><text class="sb" x="52" y="69">Streams replies (SSE), metrics panel</text>
+
+      <!-- Edge -->
+      <text class="band" x="40" y="112">EDGE &amp; IDENTITY</text>
+      <g class="new"><rect x="40" y="120" width="400" height="52" rx="6"/></g>
+      <text class="lb" x="52" y="142">CloudFront + load balancer</text><text class="sb" x="52" y="159">HTTPS, web app from S3, /api to the ECS task</text>
+      <g class="plan"><rect x="460" y="120" width="190" height="52" rx="6"/></g>
+      <text class="lb" x="472" y="142">Cognito login</text><text class="sb" x="472" y="159">Demo X-User-Id header today</text>
+      <g class="plan"><rect x="662" y="120" width="178" height="52" rx="6"/></g>
+      <text class="lb" x="674" y="142">WAF rate limits</text><text class="sb" x="674" y="159">Budget caps only today</text>
+      <path class="ar" d="M170 82 V118" marker-end="url(#ah)"/>
+
+      <!-- New AI platform container -->
+      <rect class="group" x="20" y="200" width="840" height="520" rx="10"/>
+      <text class="band" x="848" y="222" text-anchor="end">NEW · AI PLATFORM</text>
+
+      <text class="band" x="40" y="246">PLATFORM SERVICES</text>
+      <g class="new"><rect x="40" y="254" width="260" height="52" rx="6"/></g>
+      <text class="lb" x="52" y="276">Orchestrator (Spring Boot)</text><text class="sb" x="52" y="293">Entry point, sessions held in memory</text>
+      <g class="new"><rect x="320" y="254" width="250" height="52" rx="6"/></g>
+      <text class="lb" x="332" y="276">Postgres + pgvector</text><text class="sb" x="332" y="293">Knowledge base; local only so far</text>
+      <g class="plan"><rect x="590" y="254" width="250" height="52" rx="6"/></g>
+      <text class="lb" x="602" y="276">Redis</text><text class="sb" x="602" y="293">Needed to run more than one task</text>
+      <path class="ar" d="M170 172 V252" marker-end="url(#ah)"/>
+
+      <!-- L1 -->
+      <rect class="aiband" x="40" y="326" width="800" height="86" rx="8"/>
+      <text class="band" x="270" y="344">AI LAYER 1 · PRIVACY &amp; SAFETY</text>
+      <g class="ai"><rect x="52" y="352" width="148" height="48" rx="6"/></g>
+      <text class="lb" x="62" y="372">PII redactor</text><text class="sb" x="62" y="388">Regex + Luhn check</text>
+      <g class="ai"><rect x="209" y="352" width="148" height="48" rx="6"/></g>
+      <text class="lb" x="219" y="372">PII vault</text><text class="sb" x="219" y="388">In memory, with TTL</text>
+      <g class="ai"><rect x="366" y="352" width="148" height="48" rx="6"/></g>
+      <text class="lb" x="376" y="372">Output guard</text><text class="sb" x="376" y="388">Mask, restore for owner</text>
+      <g class="ai"><rect x="523" y="352" width="148" height="48" rx="6"/></g>
+      <text class="lb" x="533" y="372">Streaming guard</text><text class="sb" x="533" y="388">Checks text in safe chunks</text>
+      <g class="plan"><rect x="680" y="352" width="148" height="48" rx="6"/></g>
+      <text class="lb" x="690" y="372">Injection guard</text><text class="sb" x="690" y="388">Authz in code today</text>
+      <path class="ar" d="M126 306 V350" marker-end="url(#ah)"/>
+
+      <!-- L2 -->
+      <rect class="aiband" x="40" y="424" width="800" height="86" rx="8"/>
+      <text class="band" x="270" y="442">AI LAYER 2 · COST &amp; ROUTING</text>
+      <g class="ai"><rect x="52" y="450" width="185" height="48" rx="6"/></g>
+      <text class="lb" x="64" y="470">Response cache</text><text class="sb" x="64" y="486">Exact match, 60 seconds</text>
+      <g class="ai"><rect x="249" y="450" width="185" height="48" rx="6"/></g>
+      <text class="lb" x="263" y="470">Intent router</text><text class="sb" x="263" y="486">Rules only, no LLM</text>
+      <g class="ai"><rect x="446" y="450" width="185" height="48" rx="6"/></g>
+      <text class="lb" x="458" y="470">Template responder</text><text class="sb" x="458" y="486">Answers with no LLM call</text>
+      <g class="ai"><rect x="643" y="450" width="185" height="48" rx="6"/></g>
+      <text class="lb" x="657" y="470">Prefetch planner</text><text class="sb" x="657" y="486">Read lookups before Claude</text>
+      <path class="ar" d="M126 400 V448" marker-end="url(#ah)"/>
+      <path class="ar" d="M237 474 H247" marker-end="url(#ah)"/>
+      <path class="ar dash" d="M434 474 H444" marker-end="url(#ah)"/>
+
+      <!-- L3 -->
+      <rect class="aiband" x="40" y="522" width="440" height="86" rx="8"/>
+      <text class="band" x="52" y="540">AI LAYER 3 · AGENT / REASONING</text>
+      <g class="ai"><rect x="52" y="548" width="230" height="48" rx="6"/></g>
+      <text class="lb" x="64" y="568">Versioned prompt</text><text class="sb" x="64" y="584">system-v1.md, version in every reply</text>
+      <g class="ai"><rect x="294" y="548" width="174" height="48" rx="6"/></g>
+      <text class="lb" x="306" y="568">Agent loop</text><text class="sb" x="306" y="584">Max 3 tool rounds</text>
+      <path class="ar" d="M340 498 V546" marker-end="url(#ah)"/>
+      <path class="ar" d="M735 498 V516 H450 V546" marker-end="url(#ah)"/>
+      <path class="ar" d="M294 572 H284" marker-end="url(#ah)"/>
+
+      <!-- L5 -->
+      <rect class="aiband" x="492" y="522" width="348" height="86" rx="8"/>
+      <text class="band" x="504" y="540">AI LAYER 5 · KNOWLEDGE (RAG)</text>
+      <g class="ai"><rect x="504" y="548" width="160" height="48" rx="6"/></g>
+      <text class="lb" x="516" y="568">Hybrid search</text><text class="sb" x="516" y="584">Vector + full-text (RRF)</text>
+      <g class="ai"><rect x="676" y="548" width="152" height="48" rx="6"/></g>
+      <text class="lb" x="688" y="568">Ingest + embed</text><text class="sb" x="688" y="584">Local model, at startup</text>
+      <path class="ar" d="M468 560 H502" marker-end="url(#ah)"/>
+      <path class="ar" d="M676 572 H666" marker-end="url(#ah)"/>
+
+      <!-- Bottom row: tools + L4 -->
+      <text class="band" x="52" y="634">PLATFORM SERVICES</text>
+      <g class="new"><rect x="52" y="642" width="176" height="52" rx="6"/></g>
+      <text class="lb" x="64" y="664">Policy engine</text><text class="sb" x="64" y="681">Confirms write actions</text>
+      <g class="new"><rect x="240" y="642" width="228" height="52" rx="6"/></g>
+      <text class="lb" x="252" y="664">Tool adapter</text><text class="sb" x="252" y="681">Authz, timeouts, trimming, 7 tools</text>
+      <path class="ar" d="M240 668 H230" marker-end="url(#ah)"/>
+      <path class="ar" d="M380 596 V640" marker-end="url(#ah)"/>
+
+      <rect class="aiband" x="492" y="620" width="348" height="84" rx="8"/>
+      <text class="band" x="504" y="638">AI LAYER 4 · LLM ACCESS</text>
+      <g class="ai"><rect x="504" y="646" width="324" height="48" rx="6"/></g>
+      <text class="lb" x="516" y="666">LLM gateway</text><text class="sb" x="516" y="682">Budget caps, model per route, streaming, metering</text>
+      <path class="ar" d="M468 588 H486 V670 H502" marker-end="url(#ah)"/>
+
+      <!-- Right column -->
+      <rect class="aiband" x="880" y="200" width="220" height="232" rx="8"/>
+      <text class="band" x="892" y="222">AI LAYER 6 · AI OPS</text>
+      <g class="ai"><rect x="892" y="232" width="196" height="52" rx="6"/></g>
+      <text class="lb" x="904" y="254">Evals + load test</text><text class="sb" x="904" y="271">Golden, retrieval, k6</text>
+      <g class="ai"><rect x="892" y="296" width="196" height="52" rx="6"/></g>
+      <text class="lb" x="904" y="318">Metrics panel</text><text class="sb" x="904" y="335">Spend, p95, PII counters</text>
+      <g class="plan"><rect x="892" y="360" width="196" height="52" rx="6"/></g>
+      <text class="lb" x="904" y="382">LLM tracing</text><text class="sb" x="904" y="399">OpenTelemetry</text>
+      <path class="ar dash" d="M300 280 H310 V230 H866 V280 H878" marker-end="url(#ah)"/>
+
+      <g class="new"><rect x="892" y="470" width="196" height="52" rx="6"/></g>
+      <text class="lb" x="904" y="492">CloudWatch + Budgets</text><text class="sb" x="904" y="509">Logs and cost alerts</text>
+      <path class="ar dash" d="M990 432 V468" marker-end="url(#ah)"/>
+
+      <g class="ext"><rect x="880" y="632" width="220" height="76" rx="6"/></g>
+      <text class="lb" x="892" y="656">Claude Haiku + Sonnet 5.5</text>
+      <text class="sb" x="892" y="673">Local: Claude API (working)</text>
+      <text class="sb" x="892" y="690">AWS: Bedrock (access pending)</text>
+      <path class="ar" d="M828 670 H878" marker-end="url(#ah)"/>
+
+      <!-- Legacy -->
+      <rect class="grouplg" x="20" y="790" width="840" height="110" rx="10"/>
+      <text class="band" x="848" y="812" text-anchor="end">LEGACY (UNCHANGED) · MOCKS</text>
+      <g class="leg"><rect x="40" y="822" width="150" height="56" rx="6"/></g>
+      <text class="lb" x="52" y="845">Order API</text><text class="sb" x="52" y="862">Mock</text>
+      <g class="leg"><rect x="204" y="822" width="150" height="56" rx="6"/></g>
+      <text class="lb" x="216" y="845">Inventory API</text><text class="sb" x="216" y="862">Mock</text>
+      <g class="leg"><rect x="368" y="822" width="150" height="56" rx="6"/></g>
+      <text class="lb" x="380" y="845">Payment API</text><text class="sb" x="380" y="862">Mock</text>
+      <g class="plan"><rect x="532" y="822" width="150" height="56" rx="6"/></g>
+      <text class="lb" x="544" y="845">CRM / Helpdesk</text><text class="sb" x="544" y="862">Handoff message only</text>
+      <g class="leg"><rect x="696" y="822" width="144" height="56" rx="6"/></g>
+      <text class="lb" x="708" y="845">Policy documents</text><text class="sb" x="708" y="862">6 sample files</text>
+
+      <!-- Tool bus -->
+      <path class="ar" d="M354 694 V760"/>
+      <path class="ar" d="M115 760 H443"/>
+      <path class="ar" d="M115 760 V820" marker-end="url(#ah)"/>
+      <path class="ar" d="M279 760 V820" marker-end="url(#ah)"/>
+      <path class="ar" d="M443 760 V820" marker-end="url(#ah)"/>
+      <path class="ar dash" d="M443 760 H607 V820" marker-end="url(#ah)"/>
+
+      <!-- Request path badges -->
+      <g class="bd"><circle cx="186" cy="236" r="9"/><text x="186" y="240">1</text></g>
+      <g class="bd"><circle cx="110" cy="329" r="9"/><text x="110" y="333">2</text></g>
+      <g class="bd"><circle cx="110" cy="425" r="9"/><text x="110" y="429">3</text></g>
+      <g class="bd"><circle cx="249" cy="450" r="9"/><text x="249" y="454">4</text></g>
+      <g class="bd"><circle cx="643" cy="450" r="9"/><text x="643" y="454">5</text></g>
+      <g class="bd"><circle cx="294" cy="548" r="9"/><text x="294" y="552">6</text></g>
+      <g class="bd"><circle cx="486" cy="614" r="9"/><text x="486" y="618">7</text></g>
+      <g class="bd"><circle cx="364" cy="618" r="9"/><text x="364" y="622">8</text></g>
+      <g class="bd"><circle cx="514" cy="352" r="9"/><text x="514" y="356">9</text></g>
+    </svg>
+  </div>
+
+  <section>
+    <h2>Request path</h2>
+    <ol class="steps">
+      <li><span>CloudFront passes <code>/api/chat</code> through the load balancer to the orchestrator. The user comes from the demo <code>X-User-Id</code> header.</span></li>
+      <li><span>The PII redactor replaces personal data with placeholders; real values go to the vault.</span></li>
+      <li><span>The response cache answers repeat questions from the same user within 60 seconds.</span></li>
+      <li><span>The intent router uses rules to pick a path: template (no LLM), Haiku or Sonnet.</span></li>
+      <li><span>For Claude routes, the prefetch planner runs predictable read lookups first, which saves a model round.</span></li>
+      <li><span>The agent loop calls Claude with the versioned prompt and tools, for up to 3 tool rounds.</span></li>
+      <li><span>The LLM gateway checks the budget, picks the model, streams the response and meters the cost.</span></li>
+      <li><span>The tool adapter calls the legacy APIs with the user's identity; the policy engine turns cancellations into proposals that need a Confirm click.</span></li>
+      <li><span>The streaming guard checks each piece of text, the output guard checks the full answer and restores placeholders for the owner, and the reply reaches the browser.</span></li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>What changed from the original design</h2>
+    <div class="tablebox">
+      <table>
+        <thead><tr><th>Area</th><th>Original design</th><th>Built</th></tr></thead>
+        <tbody>
+          <tr><td>Edge</td><td>Existing API Gateway / WAF</td><td>CloudFront and a load balancer that only accepts CloudFront plus a secret header</td></tr>
+          <tr><td>Identity</td><td>Existing OIDC provider</td><td>Demo header; Cognito planned</td></tr>
+          <tr><td>Model access on AWS</td><td>Claude API</td><td>Bedrock through the task IAM role, with no API key; account access still pending</td></tr>
+          <tr><td>Shared state</td><td>Redis and Postgres</td><td>In memory, so one task only; Postgres used for the knowledge base, locally</td></tr>
+          <tr><td>Response cache</td><td>Exact and semantic match</td><td>Exact match only</td></tr>
+          <tr><td>Intent router</td><td>Rules, with Haiku when unclear</td><td>Rules only</td></tr>
+          <tr><td>Prefetch planner</td><td>Not in the design</td><td><b>Added.</b> Cut median latency from 2.8 s to 1.4 s</td></tr>
+          <tr><td>Streaming guard</td><td>Not in the design</td><td><b>Added.</b> Needed to keep PII checks working on streamed text</td></tr>
+          <tr><td>Startup warm-up</td><td>Not in the design</td><td><b>Added.</b> Removes a 5–11 s first request after a restart</td></tr>
+          <tr><td>Injection guard</td><td>Separate component</td><td>Not built; authorization in code is the protection, tested by an eval case</td></tr>
+          <tr><td>Knowledge search</td><td>pgvector</td><td>Hybrid vector and full-text search, local; in-memory keyword search on AWS</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Component inventory</h2>
+    <div class="tablebox">
+      <table>
+        <thead><tr><th>Component</th><th>Status</th><th>Today</th></tr></thead>
+        <tbody>
+          <tr class="sec"><td colspan="3">Legacy systems</td></tr>
+          <tr><td>Order, Inventory, Payment APIs</td><td><span class="pill leg">Mock</span></td><td>Express mocks with ownership checks, idempotent cancel, and latency and failure injection</td></tr>
+          <tr><td>Policy documents</td><td><span class="pill leg">Sample</span></td><td>6 markdown files, 30 sections, in <code>orchestrator/src/main/resources/knowledge/</code></td></tr>
+          <tr><td>CRM / Helpdesk</td><td><span class="pill plan">Planned</span></td><td>The user gets a handoff message; nothing is sent to a helpdesk</td></tr>
+
+          <tr class="sec"><td colspan="3">Platform components</td></tr>
+          <tr><td>React chat UI</td><td><span class="pill new">Built</span></td><td>Streaming replies, confirmation cards, live metrics panel</td></tr>
+          <tr><td>CloudFront, load balancer, ECS Fargate, S3, ECR</td><td><span class="pill new">Built</span></td><td>Deployed with Terraform and <code>deploy.sh</code>; the ECS task is paused while Bedrock access is pending</td></tr>
+          <tr><td>Orchestrator</td><td><span class="pill new">Built</span></td><td>Spring Boot; sessions and pending actions held in memory</td></tr>
+          <tr><td>Tool adapter</td><td><span class="pill new">Built</span></td><td>7 tools with authorization, timeouts, trimming and PII re-redaction; no circuit breakers yet</td></tr>
+          <tr><td>Policy engine</td><td><span class="pill new">Built</span></td><td>Cancellation proposals, confirmation, idempotency keys, audit log</td></tr>
+          <tr><td>Postgres + pgvector</td><td><span class="pill new">Local only</span></td><td>Knowledge base when <code>RAG_ENABLED=true</code>; no audit or outbox tables yet</td></tr>
+          <tr><td>CloudWatch and AWS Budgets</td><td><span class="pill new">Built</span></td><td>Logs for 7 days; cost emails at 50, 80 and 100%</td></tr>
+          <tr><td>Redis</td><td><span class="pill plan">Planned</span></td><td>Needed for shared state and more than one task</td></tr>
+          <tr><td>Cognito login</td><td><span class="pill plan">Planned</span></td><td>Replaces the demo header</td></tr>
+          <tr><td>WAF rate limits</td><td><span class="pill plan">Planned</span></td><td>Budget caps and alerts are the only protection today</td></tr>
+
+          <tr class="sec"><td colspan="3">AI layers</td></tr>
+          <tr><td>L1 Privacy &amp; Safety</td><td><span class="pill ai">Built</span></td><td>Redactor, vault, output guard, streaming guard. Names and addresses need Presidio (planned)</td></tr>
+          <tr><td>L2 Cost &amp; Routing</td><td><span class="pill ai">Built</span></td><td>Cache, rules router, templates, prefetch planner</td></tr>
+          <tr><td>L3 Agent / Reasoning</td><td><span class="pill ai">Built</span></td><td>Agent loop and a versioned prompt file; no model registry or gradual rollout</td></tr>
+          <tr><td>L4 LLM Access</td><td><span class="pill ai">Built</span></td><td>Budget caps, model per route, streaming, metering. Falling back to another model on errors is planned</td></tr>
+          <tr><td>L5 Knowledge (RAG)</td><td><span class="pill ai">Local only</span></td><td>Hybrid search with local embeddings, recall@3 of 1.00 on 24 questions</td></tr>
+          <tr><td>L6 AI Ops</td><td><span class="pill ai">Partial</span></td><td>Golden-set and retrieval evals, k6, metrics panel. LLM tracing and dashboards are planned</td></tr>
+
+          <tr class="sec"><td colspan="3">External</td></tr>
+          <tr><td>Claude API</td><td><span class="pill ext">Working</span></td><td>Used for local runs and evals, through the LLM gateway</td></tr>
+          <tr><td>Claude in Amazon Bedrock</td><td><span class="pill ext">Pending</span></td><td>Code and IAM ready; waiting for AWS to enable the Anthropic model agreements on the account</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="note">Status as of 5 November 2026. Latency and retrieval figures come from the runs recorded in the project README.</p>
+</div>
+</body>
+</html>

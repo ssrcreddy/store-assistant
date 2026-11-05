@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Assistant Components</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: single reading column; wide diagram in its own scroll box, then request path + inventory table */
+:root {
+  --bg: #f6f7f9; --surface: #ffffff; --fg: #141922; --muted: #5a6371; --line: #d6dbe2; --arrow: #3a4351;
+  --leg-fill: #eceef1; --leg-stroke: #858d99;
+  --new-fill: #e2ecfb; --new-stroke: #2c6bd3;
+  --ai-fill: #eee7fb; --ai-stroke: #6f43c6; --ai-band: #f7f3fe;
+  --ext-fill: #fcf0da; --ext-stroke: #b9770c;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1218; --surface: #161a22; --fg: #e5e8ee; --muted: #9aa3b1; --line: #2b313c; --arrow: #b4bcc8;
+  --leg-fill: #20252d; --leg-stroke: #8a929e;
+  --new-fill: #13233c; --new-stroke: #6c9fef;
+  --ai-fill: #23193a; --ai-stroke: #a687eb; --ai-band: #19142a;
+  --ext-fill: #32250e; --ext-stroke: #dfa23a;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f1218; --surface: #161a22; --fg: #e5e8ee; --muted: #9aa3b1; --line: #2b313c; --arrow: #b4bcc8;
+  --leg-fill: #20252d; --leg-stroke: #8a929e;
+  --new-fill: #13233c; --new-stroke: #6c9fef;
+  --ai-fill: #23193a; --ai-stroke: #a687eb; --ai-band: #19142a;
+  --ext-fill: #32250e; --ext-stroke: #dfa23a;
+  color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 36px; }
+header { display: grid; gap: 10px; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-size: clamp(26px, 4vw, 36px); line-height: 1.15; margin: 0; font-weight: 700; text-wrap: balance; }
+h2 { font-size: 20px; margin: 0 0 12px; font-weight: 600; text-wrap: balance; }
+p { margin: 0; max-width: 68ch; }
+.lede { color: var(--muted); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 10px 20px; font-size: 13px; }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.sw { width: 18px; height: 12px; border-radius: 3px; border: 1.5px solid; display: inline-block; }
+.sw.leg { background: var(--leg-fill); border-color: var(--leg-stroke); }
+.sw.new { background: var(--new-fill); border-color: var(--new-stroke); }
+.sw.ai { background: var(--ai-fill); border-color: var(--ai-stroke); }
+.sw.ext { background: var(--ext-fill); border-color: var(--ext-stroke); }
+
+.callout { border-left: 3px solid var(--ai-stroke); background: var(--surface); padding: 14px 18px; border-radius: 0 6px 6px 0; }
+.callout strong { font-weight: 600; }
+
+.diagram { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; padding: 12px; }
+.diagram svg { display: block; width: 100%; min-width: 900px; height: auto; }
+svg text { font-family: var(--sans); fill: var(--fg); }
+svg .lb { font-size: 13px; font-weight: 600; }
+svg .sb { font-size: 11px; fill: var(--muted); }
+svg .band { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; fill: var(--muted); font-weight: 500; }
+svg .leg rect { fill: var(--leg-fill); stroke: var(--leg-stroke); stroke-width: 1.5; }
+svg .new rect { fill: var(--new-fill); stroke: var(--new-stroke); stroke-width: 1.5; }
+svg .ai rect { fill: var(--ai-fill); stroke: var(--ai-stroke); stroke-width: 1.5; }
+svg .ext rect { fill: var(--ext-fill); stroke: var(--ext-stroke); stroke-width: 1.5; }
+svg .aiband { fill: var(--ai-band); stroke: var(--ai-stroke); stroke-width: 1; stroke-dasharray: 3 3; }
+svg .group { fill: none; stroke: var(--line); stroke-width: 1.5; }
+svg .grouplg { fill: none; stroke: var(--leg-stroke); stroke-width: 1.5; stroke-dasharray: 6 4; }
+svg .ar { stroke: var(--arrow); stroke-width: 1.6; fill: none; }
+svg .ar.dash { stroke-dasharray: 4 4; }
+svg .ah { fill: var(--arrow); }
+svg .bd circle { fill: var(--fg); }
+svg .bd text { fill: var(--bg); font-family: var(--mono); font-size: 10.5px; font-weight: 500; text-anchor: middle; }
+
+ol.steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; counter-reset: s; max-width: 80ch; }
+ol.steps li { display: grid; grid-template-columns: 26px 1fr; gap: 12px; align-items: start; counter-increment: s; }
+ol.steps li::before { content: counter(s); width: 22px; height: 22px; border-radius: 50%; background: var(--fg); color: var(--bg);
+  font-family: var(--mono); font-size: 12px; display: grid; place-items: center; margin-top: 1px; }
+
+.tablebox { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--mono); font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+tr:last-child td { border-bottom: 0; }
+tr.sec td { background: var(--bg); font-weight: 600; font-size: 13px; }
+.pill { display: inline-block; font-family: var(--mono); font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+.pill.leg { background: var(--leg-fill); border-color: var(--leg-stroke); }
+.pill.new { background: var(--new-fill); border-color: var(--new-stroke); }
+.pill.ai { background: var(--ai-fill); border-color: var(--ai-stroke); }
+.pill.ext { background: var(--ext-fill); border-color: var(--ext-stroke); }
+.assumed { color: var(--muted); font-size: 12px; display: block; margin-top: 3px; }
+.note { color: var(--muted); font-size: 13px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Architecture · Component view</div>
+    <h1>AI Assistant Components</h1>
+    <p class="lede">What already exists, what the project adds, and where the AI layers sit, for the assistant built on the existing Order, Inventory and Payment APIs.</p>
+  </header>
+
+  <div class="legend" aria-label="Legend">
+    <span><i class="sw leg"></i>Existing legacy system</span>
+    <span><i class="sw new"></i>New platform component</span>
+    <span><i class="sw ai"></i>New AI layer</span>
+    <span><i class="sw ext"></i>External SaaS</span>
+  </div>
+
+  <div class="callout"><strong>No legacy system changes.</strong> Everything new sits between the channels and the existing APIs, and the AI layers reach those APIs only through the tool adapter, which enforces the user's identity, authorization and PII handling.</div>
+
+  <div class="diagram">
+    <svg viewBox="0 0 1120 920" role="img" aria-label="Component diagram: channels, edge, new AI platform with six AI layers, external Claude API, and unchanged legacy systems">
+      <defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path class="ah" d="M0 0L10 5L0 10z"/>
+        </marker>
+      </defs>
+
+      <!-- Channels -->
+      <text class="band" x="40" y="22">CHANNELS</text>
+      <g class="new"><rect x="40" y="30" width="260" height="52" rx="6"/></g>
+      <text class="lb" x="52" y="52">Chat widget</text><text class="sb" x="52" y="69">Streams replies (SSE)</text>
+      <g class="leg"><rect x="360" y="30" width="260" height="52" rx="6"/></g>
+      <text class="lb" x="372" y="52">Web / mobile app</text><text class="sb" x="372" y="69">Hosts the chat widget</text>
+      <path class="ar" d="M360 56 H302" marker-end="url(#ah)"/>
+
+      <!-- Edge -->
+      <text class="band" x="40" y="112">EDGE &amp; IDENTITY</text>
+      <g class="leg"><rect x="40" y="120" width="400" height="52" rx="6"/></g>
+      <text class="lb" x="52" y="142">API Gateway / WAF</text><text class="sb" x="52" y="159">Extended: /ai routes, per-user rate limits</text>
+      <g class="leg"><rect x="460" y="120" width="380" height="52" rx="6"/></g>
+      <text class="lb" x="472" y="142">Identity provider (OIDC)</text><text class="sb" x="472" y="159">User token flows to tools</text>
+      <path class="ar" d="M442 146 H458" marker-start="url(#ah)" marker-end="url(#ah)"/>
+      <path class="ar" d="M170 82 V118" marker-end="url(#ah)"/>
+
+      <!-- New AI platform container -->
+      <rect class="group" x="20" y="200" width="840" height="520" rx="10"/>
+      <text class="band" x="848" y="222" text-anchor="end">NEW · AI PLATFORM</text>
+
+      <text class="band" x="40" y="246">PLATFORM SERVICES</text>
+      <g class="new"><rect x="40" y="254" width="260" height="52" rx="6"/></g>
+      <text class="lb" x="52" y="276">AI Orchestrator API</text><text class="sb" x="52" y="293">Entry point, session state</text>
+      <g class="new"><rect x="320" y="254" width="250" height="52" rx="6"/></g>
+      <text class="lb" x="332" y="276">Postgres</text><text class="sb" x="332" y="293">Sessions · audit · outbox</text>
+      <g class="new"><rect x="590" y="254" width="250" height="52" rx="6"/></g>
+      <text class="lb" x="602" y="276">Redis</text><text class="sb" x="602" y="293">Cache · PII vault · limits</text>
+      <path class="ar" d="M170 172 V252" marker-end="url(#ah)"/>
+
+      <!-- L1 -->
+      <rect class="aiband" x="40" y="326" width="800" height="86" rx="8"/>
+      <text class="band" x="52" y="344">AI LAYER 1 · PRIVACY &amp; SAFETY</text>
+      <g class="ai"><rect x="52" y="352" width="182" height="48" rx="6"/></g>
+      <text class="lb" x="64" y="372">PII redactor</text><text class="sb" x="64" y="388">Swaps PII for placeholders</text>
+      <g class="ai"><rect x="246" y="352" width="182" height="48" rx="6"/></g>
+      <text class="lb" x="258" y="372">PII vault</text><text class="sb" x="258" y="388">Encrypted, 30-min TTL</text>
+      <g class="ai"><rect x="440" y="352" width="182" height="48" rx="6"/></g>
+      <text class="lb" x="452" y="372">Injection guard</text><text class="sb" x="452" y="388">Flags prompt injection</text>
+      <g class="ai"><rect x="634" y="352" width="194" height="48" rx="6"/></g>
+      <text class="lb" x="646" y="372">Output guard</text><text class="sb" x="646" y="388">PII re-scan + restore</text>
+      <path class="ar" d="M143 306 V350" marker-end="url(#ah)"/>
+
+      <!-- L2 -->
+      <rect class="aiband" x="40" y="424" width="800" height="86" rx="8"/>
+      <text class="band" x="52" y="442">AI LAYER 2 · COST &amp; ROUTING</text>
+      <g class="ai"><rect x="52" y="450" width="240" height="48" rx="6"/></g>
+      <text class="lb" x="64" y="470">Response cache</text><text class="sb" x="64" y="486">Exact + semantic match</text>
+      <g class="ai"><rect x="312" y="450" width="250" height="48" rx="6"/></g>
+      <text class="lb" x="324" y="470">Intent router</text><text class="sb" x="324" y="486">Rules first, Haiku if unclear</text>
+      <g class="ai"><rect x="582" y="450" width="246" height="48" rx="6"/></g>
+      <text class="lb" x="594" y="470">Template responder</text><text class="sb" x="594" y="486">Answers with no LLM call</text>
+      <path class="ar" d="M143 400 V448" marker-end="url(#ah)"/>
+      <path class="ar" d="M292 480 H310" marker-end="url(#ah)"/>
+      <path class="ar dash" d="M562 480 H580" marker-end="url(#ah)"/>
+
+      <!-- L3 -->
+      <rect class="aiband" x="40" y="522" width="440" height="86" rx="8"/>
+      <text class="band" x="52" y="540">AI LAYER 3 · AGENT / REASONING</text>
+      <g class="ai"><rect x="52" y="548" width="230" height="48" rx="6"/></g>
+      <text class="lb" x="64" y="568">Prompt &amp; model registry</text><text class="sb" x="64" y="584">Versioned, eval-gated</text>
+      <g class="ai"><rect x="294" y="548" width="174" height="48" rx="6"/></g>
+      <text class="lb" x="306" y="568">Agent loop</text><text class="sb" x="306" y="584">Max 3 tool rounds</text>
+      <path class="ar" d="M380 498 V546" marker-end="url(#ah)"/>
+      <path class="ar" d="M294 572 H284" marker-end="url(#ah)"/>
+
+      <!-- L5 -->
+      <rect class="aiband" x="492" y="522" width="348" height="86" rx="8"/>
+      <text class="band" x="504" y="540">AI LAYER 5 · KNOWLEDGE (RAG)</text>
+      <g class="ai"><rect x="504" y="548" width="160" height="48" rx="6"/></g>
+      <text class="lb" x="516" y="568">Policy &amp; FAQ KB</text><text class="sb" x="516" y="584">pgvector search</text>
+      <g class="ai"><rect x="676" y="548" width="152" height="48" rx="6"/></g>
+      <text class="lb" x="688" y="568">Doc ingestion</text><text class="sb" x="688" y="584">Embeds policy docs</text>
+      <path class="ar" d="M468 560 H502" marker-end="url(#ah)"/>
+      <path class="ar" d="M676 572 H666" marker-end="url(#ah)"/>
+
+      <!-- Bottom row: tools + L4 -->
+      <text class="band" x="52" y="634">PLATFORM SERVICES</text>
+      <g class="new"><rect x="52" y="642" width="176" height="52" rx="6"/></g>
+      <text class="lb" x="64" y="664">Policy engine</text><text class="sb" x="64" y="681">Confirms write actions</text>
+      <g class="new"><rect x="240" y="642" width="228" height="52" rx="6"/></g>
+      <text class="lb" x="252" y="664">Tool adapter / MCP</text><text class="sb" x="252" y="681">Authz · timeouts · trimming</text>
+      <path class="ar" d="M240 668 H230" marker-end="url(#ah)"/>
+      <path class="ar" d="M380 596 V640" marker-end="url(#ah)"/>
+
+      <rect class="aiband" x="492" y="620" width="348" height="84" rx="8"/>
+      <text class="band" x="504" y="638">AI LAYER 4 · LLM ACCESS</text>
+      <g class="ai"><rect x="504" y="646" width="324" height="48" rx="6"/></g>
+      <text class="lb" x="516" y="666">LLM gateway</text><text class="sb" x="516" y="682">Budget caps · fallback · metering</text>
+      <path class="ar" d="M468 588 H486 V670 H502" marker-end="url(#ah)"/>
+
+      <!-- Right column: AI Ops, monitoring, Claude -->
+      <rect class="aiband" x="880" y="200" width="220" height="232" rx="8"/>
+      <text class="band" x="892" y="222">AI LAYER 6 · AI OPS</text>
+      <g class="ai"><rect x="892" y="232" width="196" height="52" rx="6"/></g>
+      <text class="lb" x="904" y="254">Eval pipeline</text><text class="sb" x="904" y="271">Golden set, runs in CI</text>
+      <g class="ai"><rect x="892" y="296" width="196" height="52" rx="6"/></g>
+      <text class="lb" x="904" y="318">LLM tracing</text><text class="sb" x="904" y="335">Redacted traces (OTel)</text>
+      <g class="ai"><rect x="892" y="360" width="196" height="52" rx="6"/></g>
+      <text class="lb" x="904" y="382">Cost dashboard</text><text class="sb" x="904" y="399">Spend vs monthly budget</text>
+      <path class="ar dash" d="M300 280 H310 V230 H866 V280 H878" marker-end="url(#ah)"/>
+
+      <g class="leg"><rect x="892" y="470" width="196" height="52" rx="6"/></g>
+      <text class="lb" x="904" y="492">Monitoring / SIEM</text><text class="sb" x="904" y="509">Existing, receives traces</text>
+      <path class="ar dash" d="M990 432 V468" marker-end="url(#ah)"/>
+
+      <g class="ext"><rect x="880" y="632" width="220" height="76" rx="6"/></g>
+      <text class="lb" x="892" y="656">Claude API</text>
+      <text class="sb" x="892" y="673">External SaaS</text>
+      <text class="sb" x="892" y="690">Haiku · Sonnet · Opus 5.5</text>
+      <path class="ar" d="M828 670 H878" marker-end="url(#ah)"/>
+
+      <!-- Legacy -->
+      <rect class="grouplg" x="20" y="790" width="840" height="110" rx="10"/>
+      <text class="band" x="40" y="812">EXISTING · LEGACY SYSTEMS (UNCHANGED)</text>
+      <g class="leg"><rect x="40" y="822" width="150" height="56" rx="6"/></g>
+      <text class="lb" x="52" y="845">Order API</text><text class="sb" x="52" y="862">Unchanged</text>
+      <g class="leg"><rect x="204" y="822" width="150" height="56" rx="6"/></g>
+      <text class="lb" x="216" y="845">Inventory API</text><text class="sb" x="216" y="862">30 s read cache</text>
+      <g class="leg"><rect x="368" y="822" width="150" height="56" rx="6"/></g>
+      <text class="lb" x="380" y="845">Payment API</text><text class="sb" x="380" y="862">PCI scope, unchanged</text>
+      <g class="leg"><rect x="532" y="822" width="150" height="56" rx="6"/></g>
+      <text class="lb" x="544" y="845">CRM / Helpdesk</text><text class="sb" x="544" y="862">Human handoff</text>
+      <g class="leg"><rect x="696" y="822" width="144" height="56" rx="6"/></g>
+      <text class="lb" x="708" y="845">Policy docs</text><text class="sb" x="708" y="862">Fed to knowledge base</text>
+
+      <!-- Tool bus -->
+      <path class="ar" d="M354 694 V760"/>
+      <path class="ar" d="M115 760 H607"/>
+      <path class="ar" d="M115 760 V820" marker-end="url(#ah)"/>
+      <path class="ar" d="M279 760 V820" marker-end="url(#ah)"/>
+      <path class="ar" d="M443 760 V820" marker-end="url(#ah)"/>
+      <path class="ar" d="M607 760 V820" marker-end="url(#ah)"/>
+
+      <!-- Request path badges -->
+      <g class="bd"><circle cx="186" cy="236" r="9"/><text x="186" y="240">1</text></g>
+      <g class="bd"><circle cx="127" cy="329" r="9"/><text x="127" y="333">2</text></g>
+      <g class="bd"><circle cx="127" cy="425" r="9"/><text x="127" y="429">3</text></g>
+      <g class="bd"><circle cx="302" cy="462" r="9"/><text x="302" y="466">4</text></g>
+      <g class="bd"><circle cx="364" cy="523" r="9"/><text x="364" y="527">5</text></g>
+      <g class="bd"><circle cx="486" cy="614" r="9"/><text x="486" y="618">6</text></g>
+      <g class="bd"><circle cx="364" cy="618" r="9"/><text x="364" y="622">7</text></g>
+      <g class="bd"><circle cx="731" cy="412" r="9"/><text x="731" y="416">8</text></g>
+    </svg>
+  </div>
+
+  <section>
+    <h2>Request path</h2>
+    <ol class="steps">
+      <li><span>The gateway authenticates the user and forwards the message to the orchestrator.</span></li>
+      <li><span>The PII redactor replaces personal data with placeholders; real values go to the vault.</span></li>
+      <li><span>The response cache answers repeat questions without an LLM call.</span></li>
+      <li><span>The intent router picks a path: template (no LLM), Haiku, or Sonnet.</span></li>
+      <li><span>The agent loop plans the answer, using registered prompts and the knowledge base.</span></li>
+      <li><span>The LLM gateway checks the budget, then calls the Claude API.</span></li>
+      <li><span>The tool adapter calls legacy APIs with the user's identity; the policy engine gates write actions.</span></li>
+      <li><span>The output guard re-checks for PII, restores placeholders for the owner, and streams the reply.</span></li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Component inventory</h2>
+    <div class="tablebox">
+      <table>
+        <thead><tr><th>Component</th><th>Status</th><th>What changes</th></tr></thead>
+        <tbody>
+          <tr class="sec"><td colspan="3">Existing legacy systems</td></tr>
+          <tr><td>Order API</td><td><span class="pill leg">Existing</span></td><td>Unchanged; called through the tool adapter</td></tr>
+          <tr><td>Inventory API</td><td><span class="pill leg">Existing</span></td><td>Unchanged; 30 s read cache in front</td></tr>
+          <tr><td>Payment API (PCI)</td><td><span class="pill leg">Existing</span></td><td>Unchanged; AI only gets status and payment links, never card data</td></tr>
+          <tr><td>Web / mobile app<span class="assumed">Assumed existing</span></td><td><span class="pill leg">Existing</span></td><td>Embeds the new chat widget</td></tr>
+          <tr><td>API Gateway / WAF<span class="assumed">Assumed existing</span></td><td><span class="pill leg">Extended</span></td><td>New /ai routes and per-user rate limits</td></tr>
+          <tr><td>Identity provider (OIDC)<span class="assumed">Assumed existing</span></td><td><span class="pill leg">Existing</span></td><td>Reused; user token passed to tools for ownership checks</td></tr>
+          <tr><td>CRM / Helpdesk<span class="assumed">Assumed existing</span></td><td><span class="pill leg">Existing</span></td><td>Receives human handoffs</td></tr>
+          <tr><td>Monitoring / SIEM<span class="assumed">Assumed existing</span></td><td><span class="pill leg">Existing</span></td><td>Receives AI traces, metrics and audit events</td></tr>
+          <tr><td>Policy documents</td><td><span class="pill leg">Existing</span></td><td>Ingested into the knowledge base</td></tr>
+
+          <tr class="sec"><td colspan="3">New platform components (non-AI)</td></tr>
+          <tr><td>Chat widget</td><td><span class="pill new">New</span></td><td>Customer-facing UI with streamed replies</td></tr>
+          <tr><td>AI Orchestrator API</td><td><span class="pill new">New</span></td><td>Entry point that coordinates the AI flow</td></tr>
+          <tr><td>Tool adapter / MCP</td><td><span class="pill new">New</span></td><td>Wraps legacy APIs: authorization, response trimming, timeouts, circuit breakers</td></tr>
+          <tr><td>Policy engine</td><td><span class="pill new">New</span></td><td>User confirmations, refund limits, write-action rules</td></tr>
+          <tr><td>Postgres</td><td><span class="pill new">New</span></td><td>Sessions, conversation and action audit trail, outbox</td></tr>
+          <tr><td>Redis</td><td><span class="pill new">New</span></td><td>Response cache, PII vault, rate limits</td></tr>
+
+          <tr class="sec"><td colspan="3">New AI layers</td></tr>
+          <tr><td>L1 Privacy &amp; Safety<span class="assumed">PII redactor, PII vault, injection guard, output guard</span></td><td><span class="pill ai">AI layer</span></td><td>Keeps raw PII away from the LLM, logs and traces</td></tr>
+          <tr><td>L2 Cost &amp; Routing<span class="assumed">Response cache, intent router, template responder</span></td><td><span class="pill ai">AI layer</span></td><td>About 30% of traffic answered with no LLM call; the rest goes to the cheapest model that works</td></tr>
+          <tr><td>L3 Agent / Reasoning<span class="assumed">Agent loop, prompt &amp; model registry</span></td><td><span class="pill ai">AI layer</span></td><td>Tool-calling reasoning with versioned prompts</td></tr>
+          <tr><td>L4 LLM Access<span class="assumed">LLM gateway</span></td><td><span class="pill ai">AI layer</span></td><td>Budget caps, fallback model, token metering, region and retention settings</td></tr>
+          <tr><td>L5 Knowledge (RAG)<span class="assumed">Doc ingestion, embeddings, pgvector KB</span></td><td><span class="pill ai">AI layer</span></td><td>Grounded answers to policy questions</td></tr>
+          <tr><td>L6 AI Ops<span class="assumed">Eval pipeline, LLM tracing, cost dashboard</span></td><td><span class="pill ai">AI layer</span></td><td>Quality gates, observability, spend control</td></tr>
+
+          <tr class="sec"><td colspan="3">External</td></tr>
+          <tr><td>Claude API<span class="assumed">Haiku 5.5 · Sonnet 5.5 · Opus 5.5</span></td><td><span class="pill ext">External SaaS</span></td><td>Called only through the LLM gateway</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="note">"Assumed existing" marks components most companies already run. Confirm each one with the platform team before planning.</p>
+</div>
