@@ -58,6 +58,14 @@ public class LlmGateway {
     }
 
     /**
+     * Whether the model accepts output_config.effort. Claude Haiku 4.5 (and older models) reject it
+     * with a 400, so requests to them are sent without it.
+     */
+    public boolean supportsEffort(String model) {
+        return !ModelPricing.baseId(model).matches("claude-(haiku|sonnet|opus)-[1-4]-[0-5].*|claude-[0-9].*");
+    }
+
+    /**
      * Streams the response: each text delta goes to {@code onText} as it arrives, and the
      * accumulated message is returned for tool handling and metering. Separate text blocks are
      * joined with a newline, the same as the non-streaming answer.

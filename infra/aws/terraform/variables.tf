@@ -27,14 +27,28 @@ variable "llm_budget_usd" {
   default     = 10
 }
 
+variable "llm_provider" {
+  description = "bedrock: the Messages API endpoint (bedrock-mantle) for Claude 4.7 and later, model IDs like anthropic.claude-haiku-5-5. bedrock-runtime: the InvokeModel endpoint, inference-profile IDs like global.anthropic.claude-sonnet-4-6."
+  type        = string
+  default     = "bedrock-runtime"
+
+  validation {
+    condition     = contains(["bedrock", "bedrock-runtime"], var.llm_provider)
+    error_message = "llm_provider must be bedrock or bedrock-runtime."
+  }
+}
+
+# Defaults are the models this account can use today, on bedrock-runtime. Once AWS enables the
+# Claude 5.5 agreements, switch to llm_provider = "bedrock" with anthropic.claude-haiku-5-5 and
+# anthropic.claude-sonnet-5-5.
 variable "fast_model" {
   type    = string
-  default = "anthropic.claude-haiku-5-5"
+  default = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 }
 
 variable "smart_model" {
   type    = string
-  default = "anthropic.claude-sonnet-5-5"
+  default = "global.anthropic.claude-sonnet-4-6"
 }
 
 variable "image_tag" {

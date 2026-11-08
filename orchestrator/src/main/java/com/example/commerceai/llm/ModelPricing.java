@@ -15,7 +15,10 @@ public final class ModelPricing {
     private static final Map<String, Price> PRICES = Map.of(
             "claude-haiku-5-5", new Price(0.10, 0.50),
             "claude-sonnet-5-5", new Price(2.00, 10.00),
-            "claude-opus-5-5", new Price(4.00, 20.00));
+            "claude-opus-5-5", new Price(4.00, 20.00),
+            "claude-sonnet-5", new Price(2.00, 10.00),
+            "claude-sonnet-4-6", new Price(3.00, 15.00),
+            "claude-haiku-4-5", new Price(1.00, 5.00));
 
     private ModelPricing() {}
 
@@ -32,8 +35,13 @@ public final class ModelPricing {
                 + output * p.output()) / 1_000_000.0;
     }
 
-    /** Bedrock IDs carry an "anthropic." prefix; pricing is keyed by the bare model ID. */
+    /**
+     * Pricing is keyed by the bare model ID. Bedrock adds prefixes ("anthropic.", "global.anthropic.")
+     * and older models carry a date and version suffix ("claude-haiku-4-5-20251001-v1:0").
+     */
     static String baseId(String model) {
-        return model.startsWith("anthropic.") ? model.substring("anthropic.".length()) : model;
+        int start = model.indexOf("claude-");
+        String id = start < 0 ? model : model.substring(start);
+        return id.replaceFirst("-\\d{8}.*$", "");
     }
 }

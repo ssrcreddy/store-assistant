@@ -67,8 +67,8 @@ RAG_ENABLED=true mvn spring-boot:run   # in orchestrator/; Flyway creates the sc
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `LLM_PROVIDER` | `anthropic` | `anthropic` (Claude API) or `bedrock` (Amazon Bedrock, uses the AWS credential chain) |
-| `FAST_MODEL` / `SMART_MODEL` | `claude-haiku-5-5` / `claude-sonnet-5-5` | On Bedrock use `anthropic.claude-haiku-5-5` / `anthropic.claude-sonnet-5-5` |
+| `LLM_PROVIDER` | `anthropic` | `anthropic` (Claude API), `bedrock` (Bedrock Messages API endpoint, Claude 4.7 and later) or `bedrock-runtime` (Bedrock InvokeModel endpoint, Claude 4.6 and earlier). Both Bedrock options use the AWS credential chain. |
+| `FAST_MODEL` / `SMART_MODEL` | `claude-haiku-5-5` / `claude-sonnet-5-5` | With `bedrock`: `anthropic.claude-haiku-5-5` / `anthropic.claude-sonnet-5-5`. With `bedrock-runtime`: inference profiles such as `global.anthropic.claude-haiku-4-5-20251001-v1:0` / `global.anthropic.claude-sonnet-4-6`. `effort` is sent only to models that accept it (not Haiku 4.5). |
 | `LLM_BUDGET_USD` | `3000` | Monthly cap; SMART downgrades to FAST at 90% |
 | `LLM_FALLBACKS` | `true` | Server-side refusal fallback on Sonnet (Claude API only). Set to `false` if your account rejects it. |
 | `LLM_WARMUP` | `true` | One tiny Haiku request at startup (about $0.0004) so the first user isn't served cold. `/actuator/health/readiness` stays 503 until it finishes. |

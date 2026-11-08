@@ -28,11 +28,22 @@ resource "aws_iam_role" "task" {
 
 data "aws_iam_policy_document" "bedrock" {
   statement {
-    sid     = "InvokeClaude"
+    sid     = "InvokeClaudeMessagesApi"
     actions = ["bedrock-mantle:CreateInference"]
     # Narrow this to the two model ARNs once you've confirmed their exact ARN format in your
     # account (CloudTrail shows the resource on each call).
     resources = ["*"]
+  }
+
+  # llm_provider = "bedrock-runtime". Global inference profiles route a request to any region,
+  # so the foundation-model ARNs use a region wildcard.
+  statement {
+    sid     = "InvokeClaudeRuntime"
+    actions = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
+    resources = [
+      "arn:aws:bedrock:*:${data.aws_caller_identity.current.account_id}:inference-profile/*anthropic.claude-*",
+      "arn:aws:bedrock:*::foundation-model/anthropic.claude-*",
+    ]
   }
 }
 

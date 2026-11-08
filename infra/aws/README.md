@@ -106,4 +106,14 @@ This removes everything, including images and the web bucket, and costs $0 after
 6. **CI/CD.** GitHub Actions deploys through an OIDC role instead of a laptop, so there are no long-lived AWS keys.
 7. **Terraform state.** Move it to S3 with locking when more than one person deploys.
 
-On Bedrock the server-side refusal fallback isn't available; the gateway already skips it when `LLM_PROVIDER=bedrock`.
+On Bedrock the server-side refusal fallback isn't available; the gateway only sends it when `LLM_PROVIDER=anthropic`.
+
+## Which Bedrock endpoint and models
+
+The defaults in `variables.tf` are `llm_provider = "bedrock-runtime"` with Claude Haiku 4.5 and Claude Sonnet 4.6, because that's what this account can use today: the Claude 5.5 model agreements on the newer Messages API endpoint are still waiting on AWS. A local run against this account (2026-11-08) passed all 17 golden-set cases with no PII leaks, at a typical 1.2 s on Haiku 4.5 and 2.4 s on Sonnet 4.6. It cost about $0.0027 per request, above the $0.002 target, because Haiku 4.5 costs more per token and its prompt isn't being cached.
+
+When the Claude 5.5 agreements are enabled, switch with:
+
+```bash
+terraform -chdir=infra/aws/terraform apply -var llm_provider=bedrock -var fast_model=anthropic.claude-haiku-5-5 -var smart_model=anthropic.claude-sonnet-5-5 -var image_tag=<current tag>
+```

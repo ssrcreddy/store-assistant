@@ -217,7 +217,6 @@ public class AgentService {
         }
     }
 
-    /** Runs every tool call from one response in parallel and returns all results in one message. */
     /** Same system prompt and tools on every request, so the prompt prefix stays cacheable. */
     private MessageCreateParams.Builder requestFor(String model, long maxTokens, OutputConfig.Effort effort,
                                                    List<MessageParam> messages) {
@@ -225,8 +224,10 @@ public class AgentService {
                 .model(model)
                 .maxTokens(maxTokens)
                 .systemOfTextBlockParams(List.of(systemPrompt.cachedBlock()))
-                .outputConfig(OutputConfig.builder().effort(effort).build())
                 .messages(messages);
+        if (gateway.supportsEffort(model)) {
+            params.outputConfig(OutputConfig.builder().effort(effort).build());
+        }
         for (Tool t : tools.definitions()) {
             params.addTool(t);
         }

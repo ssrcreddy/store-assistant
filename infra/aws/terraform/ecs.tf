@@ -75,7 +75,7 @@ resource "aws_ecs_task_definition" "app" {
       portMappings = [{ containerPort = 8080, protocol = "tcp" }]
       dependsOn    = [{ containerName = "mock-apis", condition = "HEALTHY" }]
       environment = [
-        { name = "LLM_PROVIDER", value = "bedrock" },
+        { name = "LLM_PROVIDER", value = var.llm_provider },
         { name = "AWS_REGION", value = var.region },
         { name = "FAST_MODEL", value = var.fast_model },
         { name = "SMART_MODEL", value = var.smart_model },
