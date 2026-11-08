@@ -140,7 +140,7 @@ Notes:
 
 - **Why Claude 4.x models here:** the account's Claude 5.5 agreements on Bedrock's newer Messages API endpoint are still waiting on AWS, while Haiku 4.5 and Sonnet 4.6 work on the InvokeModel endpoint. Switching back is one `terraform apply` (see `infra/aws/README.md`).
 - **The latency target is met here** and wasn't on the Claude API run above: Sonnet 4.6 answered faster than Sonnet 5.5 did, and the warm-up meant no cold first call.
-- **Cost is over target** because Haiku 4.5 costs about 10× Haiku 5.5 per token, and its requests weren't served from the prompt cache. The likely cause, not yet confirmed, is that the fixed prompt (about 3,200 tokens) is shorter than Haiku 4.5's minimum cacheable length.
+- **Cost is over target** because Haiku 4.5 costs about 10× Haiku 5.5 per token, and its requests aren't served from the prompt cache. Haiku 4.5 only caches prompts of at least 4,096 tokens, and the fixed prompt is about 3,200, so it never caches; Sonnet 4.6's minimum is 1,024, so its requests do. Padding the prompt to cross the threshold would game the cache rather than fix anything, so the fix is moving back to Haiku 5.5, which caches this prompt.
 
 ### Load test (k6)
 

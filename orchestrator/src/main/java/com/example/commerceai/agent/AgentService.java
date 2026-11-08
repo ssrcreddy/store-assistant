@@ -158,7 +158,7 @@ public class AgentService {
                             Turn turn, AgentEvents events) {
         String model = gateway.modelFor(turn.route);
         turn.model = model;
-        OutputConfig.Effort effort = turn.route == Route.SMART ? OutputConfig.Effort.MEDIUM : OutputConfig.Effort.LOW;
+        OutputConfig.Effort effort = effortFor(turn.route);
 
         // Within a turn the message list is append-only: earlier assistant content (including
         // thinking blocks) is passed back unchanged, as the API requires.
@@ -236,15 +236,26 @@ public class AgentService {
 
     /**
      * Pays the one-time costs (JIT, TLS to the model API and the legacy APIs, prompt-cache write)
-     * before real traffic arrives. One tiny fast-model request with the real prefix; nothing is
-     * shown to a user or stored in a conversation.
+     * before real traffic arrives. One tiny request per model with the real prefix, in parallel:
+     * on Bedrock each model's first call is slow on its own (25 s for the first Sonnet 4.6 call when
+     * only Haiku was warmed). Nothing is shown to a user or stored in a conversation.
      */
     public void warmUp() {
         tools.warmUp();
         List<MessageParam> ping = List.of(MessageParam.builder()
                 .role(MessageParam.Role.USER).content("Reply with the single word OK.").build());
-        String model = gateway.modelFor(Route.FAST);
-        gateway.stream(requestFor(model, 16, OutputConfig.Effort.LOW, ping), model, text -> {});
+        Map<String, Route> models = new LinkedHashMap<>();
+        for (Route route : List.of(Route.FAST, Route.SMART)) {
+            models.putIfAbsent(gateway.modelFor(route), route);
+        }
+        CompletableFuture.allOf(models.entrySet().stream()
+                .map(e -> CompletableFuture.runAsync(() -> gateway.stream(
+                        requestFor(e.getKey(), 16, effortFor(e.getValue()), ping), e.getKey(), text -> {}), toolPool))
+                .toArray(CompletableFuture[]::new)).join();
+    }
+
+    private static OutputConfig.Effort effortFor(Route route) {
+        return route == Route.SMART ? OutputConfig.Effort.MEDIUM : OutputConfig.Effort.LOW;
     }
 
     /**

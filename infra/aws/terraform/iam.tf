@@ -26,24 +26,38 @@ resource "aws_iam_role" "task" {
   assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume.json
 }
 
+locals {
+  llm_models = distinct([var.fast_model, var.smart_model])
+  # "global.anthropic.claude-sonnet-4-6" -> "anthropic.claude-sonnet-4-6"
+  llm_base_models = distinct([for m in local.llm_models : replace(m, "/^(global|us|eu|apac|jp|au)\\./", "")])
+}
+
+# The task may call only the endpoint in use (llm_provider) and only the two configured models.
 data "aws_iam_policy_document" "bedrock" {
-  statement {
-    sid     = "InvokeClaudeMessagesApi"
-    actions = ["bedrock-mantle:CreateInference"]
-    # Narrow this to the two model ARNs once you've confirmed their exact ARN format in your
-    # account (CloudTrail shows the resource on each call).
-    resources = ["*"]
+  # Messages API endpoint. Its calls didn't appear in CloudTrail while the account was blocked, so
+  # the resource ARN format is unconfirmed; narrow this once a successful call shows it.
+  dynamic "statement" {
+    for_each = var.llm_provider == "bedrock" ? [1] : []
+    content {
+      sid       = "InvokeClaudeMessagesApi"
+      actions   = ["bedrock-mantle:CreateInference"]
+      resources = ["*"]
+    }
   }
 
-  # llm_provider = "bedrock-runtime". Global inference profiles route a request to any region,
-  # so the foundation-model ARNs use a region wildcard.
-  statement {
-    sid     = "InvokeClaudeRuntime"
-    actions = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
-    resources = [
-      "arn:aws:bedrock:*:${data.aws_caller_identity.current.account_id}:inference-profile/*anthropic.claude-*",
-      "arn:aws:bedrock:*::foundation-model/anthropic.claude-*",
-    ]
+  # InvokeModel endpoint. CloudTrail shows each call authorized against both the inference profile
+  # and the foundation model. Global profiles route to any region, hence the region wildcard on the
+  # foundation-model ARNs.
+  dynamic "statement" {
+    for_each = var.llm_provider == "bedrock-runtime" ? [1] : []
+    content {
+      sid     = "InvokeClaudeRuntime"
+      actions = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
+      resources = concat(
+        [for m in local.llm_models : "arn:aws:bedrock:*:${data.aws_caller_identity.current.account_id}:inference-profile/${m}"],
+        [for m in local.llm_base_models : "arn:aws:bedrock:*::foundation-model/${m}"],
+      )
+    }
   }
 }
 
