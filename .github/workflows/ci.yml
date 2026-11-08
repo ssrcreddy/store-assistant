@@ -55,7 +55,7 @@ jobs:
           java -jar orchestrator/target/commerce-ai-orchestrator-*.jar &
           for i in $(seq 1 60); do curl -sf localhost:8080/actuator/health/readiness && break; sleep 2; done
       - name: Run evals (fails on pass rate < 90% or any PII leak)
-        run: node evals/run-evals.mjs --min-pass 0.9
+        run: node evals/run-evals.mjs --min-pass 0.9 --require-pii-check
       - uses: actions/upload-artifact@v4
         if: always()
         with:

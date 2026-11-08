@@ -82,7 +82,7 @@ Look for `Warm-up finished in … ms`. A `Warm-up failed` with 403 or `AccessDen
 ```bash
 node evals/run-evals.mjs --base https://<your-distribution>.cloudfront.net
 ```
-The PII leak check will report that it can't read `/api/debug/llm-inputs`, because debug endpoints are off in AWS. Answers, latency and cost are still measured. The leak check stays a local and CI gate.
+The PII leak check reports `piiCheck: "skipped"`, because debug endpoints are off in AWS and the check needs `/api/debug/llm-inputs`. Answers, latency and cost are still measured. The leak check stays a local and CI gate: CI runs with `--require-pii-check`, which fails if the check can't run.
 
 ## Pause and tear down
 

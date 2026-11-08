@@ -87,7 +87,7 @@ k6 run -e NO_CACHE=1 loadtest/chat.js  # 6 req/s design peak, then 15 req/s; lat
 curl localhost:8080/api/metrics     # live spend, p95, routes, cache hits, PII counters
 ```
 
-The eval run fails if the pass rate drops below 90% or **any** raw PII value appears in the text sent to the LLM. CI runs the unit tests on every push; the eval job runs on demand (it spends tokens).
+The eval run fails if the pass rate drops below 90% or **any** raw PII value appears in the text sent to the LLM. The PII check reads `/api/debug/llm-inputs`; where that's off, as on AWS, the summary shows `piiCheck: "skipped"` instead of a leak, and `--require-pii-check` makes a skipped check fail. CI runs the unit tests on every push; the eval job runs on demand (it spends tokens) and requires the PII check.
 
 ### Results
 
@@ -120,6 +120,27 @@ Notes:
 - Streaming alone barely helped. Answers are short (150–650 characters), so most of the wait came before the first word, in the model round that chooses a tool. Prefetching the lookups the router can predict removes that round, and that halved the median.
 - On Sonnet the answer text arrives in one burst (under 60 ms from first to last text). The server-side refusal fallback is not the cause: a run with `LLM_FALLBACKS=false` showed the same burst and the same Sonnet latency (p50 3.4 s against 3.7 s), so the fallback stays on.
 - With 17 cases, p95 is the single slowest answer, and runs vary widely. Across four runs the LLM-route p95 was 6.3, 5.2, 4.8 and 8.4 s. In the slowest run, two Haiku answers waited about 8 s for their first word; the requests were unchanged, so the delay was most likely on the API side. Use the k6 run (about 1,600 requests) for p95, and the golden set for correctness and cost.
+
+### Live on AWS (Bedrock)
+
+Golden-set run on 2026-11-08 against the deployed stack at the public CloudFront URL: ECS Fargate in us-east-1, Claude on Amazon Bedrock through the task's IAM role (no API key), Claude Haiku 4.5 for FAST and Claude Sonnet 4.6 for SMART on the InvokeModel endpoint (`LLM_PROVIDER=bedrock-runtime`).
+
+| Metric | Target | Measured |
+|---|---|---|
+| Eval pass rate | ≥ 90% | **100%** (17/17) |
+| p95 latency, template route | < 1.5 s | **70 ms** |
+| p95 latency, LLM route, full answer | < 4 s | **3.19 s** ✅ |
+| Latency p50, FAST / SMART | | **1.37 s** / **2.10 s** |
+| Time to first text, LLM route | | p50 **1.13 s**, p95 2.66 s |
+| Cost per request, FAST / SMART | | **$0.0022** / **$0.0046** |
+| Cost per request, eval mix | < $0.002 | **$0.0025** ❌ |
+| PII values reaching the LLM | 0 | Skipped on AWS (debug endpoint off); **0** in a local run against the same Bedrock models |
+
+Notes:
+
+- **Why Claude 4.x models here:** the account's Claude 5.5 agreements on Bedrock's newer Messages API endpoint are still waiting on AWS, while Haiku 4.5 and Sonnet 4.6 work on the InvokeModel endpoint. Switching back is one `terraform apply` (see `infra/aws/README.md`).
+- **The latency target is met here** and wasn't on the Claude API run above: Sonnet 4.6 answered faster than Sonnet 5.5 did, and the warm-up meant no cold first call.
+- **Cost is over target** because Haiku 4.5 costs about 10× Haiku 5.5 per token, and its requests weren't served from the prompt cache. The likely cause, not yet confirmed, is that the fixed prompt (about 3,200 tokens) is shorter than Haiku 4.5's minimum cacheable length.
 
 ### Load test (k6)
 

@@ -1,5 +1,5 @@
 // Runs the golden set against a running orchestrator and reports pass rate, latency, cost and PII leaks.
-// Usage: node evals/run-evals.mjs [--base http://localhost:8080] [--min-pass 0.9]
+// Usage: node evals/run-evals.mjs [--base http://localhost:8080] [--min-pass 0.9] [--require-pii-check]
 // Note: cases that reach the model spend real tokens (roughly $0.01-0.05 for the whole set).
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
@@ -13,6 +13,7 @@ const arg = (name, fallback) => {
 };
 const BASE = arg('--base', process.env.EVAL_BASE_URL ?? 'http://localhost:8080');
 const MIN_PASS = Number(arg('--min-pass', '0.9'));
+const REQUIRE_PII_CHECK = process.argv.includes('--require-pii-check');
 
 const cases = readFileSync(join(here, 'golden.jsonl'), 'utf8')
   .split('\n')
@@ -84,14 +85,26 @@ for (const c of cases) {
   console.log(`${failures.length === 0 ? 'PASS' : 'FAIL'}  ${c.id}${failures.length ? '  -> ' + failures.join('; ') : ''}`);
 }
 
-// PII check: nothing the orchestrator sent to the LLM may contain a raw PII value.
+// PII check: nothing the orchestrator sent to the LLM may contain a raw PII value. It needs the
+// debug endpoint, which is off on deployed environments, so there the check is reported as skipped
+// rather than as a leak. --require-pii-check turns a skipped check into a failure (CI uses it).
 let leaks = [];
+let piiCheck = 'passed';
+let piiSkipReason = null;
 try {
-  const inputs = await (await fetch(`${BASE}/api/debug/llm-inputs`)).json();
-  for (const c of cases.filter((x) => x.type === 'pii'))
-    for (const v of c.piiValues) if (inputs.some((i) => i.includes(v))) leaks.push(`${c.id}: "${v}" reached the LLM`);
-} catch {
-  leaks.push('could not read /api/debug/llm-inputs (set DEBUG_ENDPOINTS=true)');
+  const res = await fetch(`${BASE}/api/debug/llm-inputs`);
+  const inputs = res.ok ? await res.json() : null;
+  if (!Array.isArray(inputs)) {
+    piiCheck = 'skipped';
+    piiSkipReason = `/api/debug/llm-inputs not available (HTTP ${res.status}); it needs DEBUG_ENDPOINTS=true`;
+  } else {
+    for (const c of cases.filter((x) => x.type === 'pii'))
+      for (const v of c.piiValues) if (inputs.some((i) => i.includes(v))) leaks.push(`${c.id}: "${v}" reached the LLM`);
+    if (leaks.length) piiCheck = 'failed';
+  }
+} catch (err) {
+  piiCheck = 'skipped';
+  piiSkipReason = `could not read /api/debug/llm-inputs: ${err.message}`;
 }
 
 const pctOf = (values) => {
@@ -113,13 +126,16 @@ const summary = {
   llmFirstTokenP50Ms: firstTokenPct(0.5),
   llmFirstTokenP95Ms: firstTokenPct(0.95),
   totalCostUsd: Number(results.reduce((s, r) => s + r.costUsd, 0).toFixed(6)),
-  piiLeaks: leaks.length,
+  piiCheck,
+  piiLeaks: piiCheck === 'skipped' ? null : leaks.length,
 };
 
 console.log('\n' + JSON.stringify(summary, null, 2));
 for (const l of leaks) console.log('LEAK ' + l);
+if (piiCheck === 'skipped') console.log(`PII check skipped: ${piiSkipReason}`);
 
 mkdirSync(join(here, 'results'), { recursive: true });
-writeFileSync(join(here, 'results', 'latest.json'), JSON.stringify({ summary, leaks, results }, null, 2));
+writeFileSync(join(here, 'results', 'latest.json'), JSON.stringify({ summary, leaks, piiSkipReason, results }, null, 2));
 
-process.exit(passRate >= MIN_PASS && leaks.length === 0 ? 0 : 1);
+const piiOk = piiCheck === 'passed' || (piiCheck === 'skipped' && !REQUIRE_PII_CHECK);
+process.exit(passRate >= MIN_PASS && piiOk ? 0 : 1);
