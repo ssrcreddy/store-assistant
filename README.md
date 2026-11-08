@@ -2,7 +2,7 @@
 
 A production-style AI customer assistant built on top of existing Order, Inventory and Payment APIs. It shows how to add an LLM to a legacy commerce stack while keeping **p95 latency, LLM cost and PII exposure** under explicit control.
 
-**Stack:** Java 17 · Spring Boot 3 · Anthropic Java SDK (Claude API or Amazon Bedrock) · Node.js mock APIs · React + TypeScript · k6 · GitHub Actions · AWS (target)
+**Stack:** Java 25 · Spring Boot 3 · Anthropic Java SDK (Claude API or Amazon Bedrock) · Node.js mock APIs · React + TypeScript · k6 · GitHub Actions · AWS (target)
 
 ## Architecture
 
@@ -38,7 +38,7 @@ A request flows through:
 
 ## Run it locally
 
-Prerequisites: Java 17, Maven, Node 20+.
+Prerequisites: Java 25, Maven, Node 20+.
 
 ```bash
 # 1. Mock legacy APIs (port 4000)
