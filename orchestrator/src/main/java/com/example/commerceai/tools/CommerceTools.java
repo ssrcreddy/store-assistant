@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 
 import java.util.LinkedHashMap;
@@ -105,7 +106,7 @@ public class CommerceTools {
             return Outcome.error("Not found on this customer's account.");
         } catch (HttpClientErrorException e) {
             return Outcome.error("The service rejected the request (" + e.getStatusCode().value() + ").");
-        } catch (ResourceAccessException e) {
+        } catch (ResourceAccessException | HttpServerErrorException e) {
             return Outcome.error("The service is not responding right now. Tell the user to try again shortly.");
         }
     }

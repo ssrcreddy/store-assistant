@@ -102,7 +102,9 @@ export default function App() {
 
   const decide = async (msg: Extract<Msg, { role: 'action' }>, decision: 'confirm' | 'reject') => {
     const res = await decideAction(userId, msg.actionId, decision);
-    setMessages((m) => m.map((x) => (x.id === msg.id ? { ...msg, state: 'done', result: res.message } : x)));
+    // A failed confirm stays pending: the action is still valid, so the buttons remain for a retry.
+    const state = res.status === 'failed' ? 'pending' : 'done';
+    setMessages((m) => m.map((x) => (x.id === msg.id ? { ...msg, state, result: res.message } : x)));
   };
 
   return (
@@ -142,10 +144,13 @@ export default function App() {
                 <div key={m.id} className="action-card">
                   <strong>{m.summary}?</strong>
                   {m.state === 'pending' ? (
-                    <div className="action-buttons">
-                      <button type="button" onClick={() => decide(m, 'confirm')}>Confirm cancellation</button>
-                      <button type="button" className="ghost" onClick={() => decide(m, 'reject')}>Keep my order</button>
-                    </div>
+                    <>
+                      {m.result && <p>{m.result}</p>}
+                      <div className="action-buttons">
+                        <button type="button" onClick={() => decide(m, 'confirm')}>Confirm cancellation</button>
+                        <button type="button" className="ghost" onClick={() => decide(m, 'reject')}>Keep my order</button>
+                      </div>
+                    </>
                   ) : (
                     <p>{m.result}</p>
                   )}

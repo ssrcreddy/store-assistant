@@ -204,7 +204,7 @@ infra/aws/      Terraform (CloudFront, ALB, ECS Fargate, Bedrock) and deploy.sh
 - [ ] RAG on AWS: RDS Postgres with pgvector and Amazon Titan embeddings on Bedrock
 - [ ] Presidio sidecar for names and addresses
 - [ ] Redis for cache, vault and sessions; Postgres for the audit trail
-- [ ] Resilience4j circuit breakers on the tool adapter
+- [x] Resilience4j circuit breakers on the legacy API client, one per API
 - [ ] Cognito JWT auth in place of the demo header
 - [ ] OpenTelemetry tracing, CloudWatch dashboards
 - [ ] Terraform for ECS Fargate + Bedrock (see `infra/aws/`)

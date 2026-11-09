@@ -65,12 +65,15 @@ public class PolicyEngine {
         return Optional.of(a);
     }
 
-    /** Executes a confirmed action once. The idempotency key makes a retried confirm safe downstream. */
+    /**
+     * Executes a confirmed action. It stays pending until the call succeeds, so the user can retry
+     * after an outage; the idempotency key makes a retry or a double click safe downstream.
+     */
     public JsonNode confirm(String actionId, String userId) {
         PendingAction a = find(actionId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("This action has expired or doesn't exist."));
-        pending.remove(actionId);
         JsonNode result = api.cancelOrder(userId, a.orderId(), a.reason(), a.idempotencyKey());
+        pending.remove(actionId);
         audit.info("action=confirm type={} user={} order={} id={} result={}", a.type(), userId, a.orderId(),
                 a.id(), result.path("status").asText());
         return result;

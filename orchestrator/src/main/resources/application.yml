@@ -53,6 +53,12 @@ app:
   tools:
     base-url: ${MOCK_API_URL:http://localhost:4000}
     timeout-ms: 800
+    circuit-breaker:
+      failure-rate-percent: 50
+      window-size: 20
+      minimum-calls: 10
+      open-wait: 15s
+      half-open-calls: 3
   rag:
     # false: in-memory keyword search over classpath:knowledge/*.md (no database).
     # true:  hybrid search (Postgres full-text + pgvector) with a local embedding model.

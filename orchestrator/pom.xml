@@ -20,6 +20,7 @@
     <properties>
         <java.version>25</java.version>
         <anthropic.version>2.34.0</anthropic.version>
+        <resilience4j.version>2.4.0</resilience4j.version>
         <langchain4j-embeddings.version>1.21.0-beta31</langchain4j-embeddings.version>
     </properties>
 
@@ -47,6 +48,13 @@
             <groupId>com.anthropic</groupId>
             <artifactId>anthropic-java-bedrock</artifactId>
             <version>${anthropic.version}</version>
+        </dependency>
+
+        <!-- Circuit breakers around the legacy APIs -->
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-circuitbreaker</artifactId>
+            <version>${resilience4j.version}</version>
         </dependency>
 
         <!-- Knowledge base (app.rag.enabled=true): Postgres + pgvector, schema via Flyway -->

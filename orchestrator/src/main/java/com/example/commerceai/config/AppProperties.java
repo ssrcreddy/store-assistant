@@ -2,6 +2,8 @@ package com.example.commerceai.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.time.Duration;
+
 /** All tunables in one place; bound from the {@code app.*} keys in application.yml. */
 @ConfigurationProperties(prefix = "app")
 public record AppProperties(Llm llm, Budget budget, Agent agent, Tools tools, boolean debugEndpoints) {
@@ -18,5 +20,14 @@ public record AppProperties(Llm llm, Budget budget, Agent agent, Tools tools, bo
 
     public record Agent(int maxToolRounds, long fastMaxTokens, long smartMaxTokens, int historyTurns) {}
 
-    public record Tools(String baseUrl, int timeoutMs) {}
+    public record Tools(String baseUrl, int timeoutMs, CircuitBreaker circuitBreaker) {
+
+        /**
+         * One breaker per legacy API. It opens when failureRatePercent of the last windowSize calls
+         * failed (once minimumCalls have been made), rejects calls for openWait, then lets
+         * halfOpenCalls test calls through to decide whether to close again.
+         */
+        public record CircuitBreaker(float failureRatePercent, int windowSize, int minimumCalls,
+                                     Duration openWait, int halfOpenCalls) {}
+    }
 }
